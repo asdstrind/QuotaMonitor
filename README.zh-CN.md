@@ -2,7 +2,7 @@
 
 <p align="center"><img src="src/QuotaMonitor/Assets/QuotaMonitor.png" width="92" alt="QuotaMonitor Capsule Q logo"></p>
 <h1 align="center">QuotaMonitor</h1>
-<p align="center">在 Windows 桌面上，轻轻看一眼 AI 用量。</p>
+<p align="center">在 Windows 桌面AI用量灵动岛。</p>
 <p align="center"><a href="https://github.com/asdstrind/QuotaMonitor/releases/latest"><strong>下载 Windows 版 ↗</strong></a><br><sub>Windows 11 x64 · 自带运行时，解压即可运行。</sub></p>
 
 <p align="center"><img src="docs/media/overview.png" width="1000" alt="QuotaMonitor expanded view and heatmap — synthetic demo data"></p>
@@ -11,7 +11,7 @@
 <p align="center"><img src="docs/media/island.gif" width="1000" alt="Minimal to Collapsed to Expanded animation — synthetic demo data"></p>
 <p align="center"><img src="docs/media/details.png" width="1000" alt="Low-balance alerts and Settings — synthetic demo data"></p>
 
-这是我给自己做着玩的一个小工具，顺手开源了，不打算长期维护或持续更新。想加功能、换平台或改界面？把代码交给自己的 AI Agent，按你的需求折腾就好。
+纯粹的vibe coding 产物，代码的泛化能力很低，仅用作个人用途，后续不会更新与维护。想加功能、换平台或改界面？把代码交给自己的 AI Agent，按你的需求折腾就好。
 
 ---
 
