@@ -1,0 +1,223 @@
+{
+  "verified_on": "2026-10-14",
+  "packages": [
+    {
+      "id": "coverlet.collector",
+      "version": "6.0.4",
+      "license": "MIT",
+      "repository": "https://github.com/coverlet-coverage/coverlet.git",
+      "commit": "90b21079d43cffae3a18f264e00962b9c8a1d57a"
+    },
+    {
+      "id": "Microsoft.AspNetCore.App.Runtime.win-x64",
+      "version": "10.0.12",
+      "license": "MIT",
+      "repository": "https://github.com/dotnet/dotnet",
+      "commit": "95017c711e6afc1085133d440e42b4bd78155701"
+    },
+    {
+      "id": "Microsoft.CodeCoverage",
+      "version": "17.14.1",
+      "license": "MIT",
+      "repository": "https://github.com/microsoft/vstest",
+      "commit": "490850ae3fdc1b470e3804ceab4f6a41cf89ae51"
+    },
+    {
+      "id": "Microsoft.NET.Test.Sdk",
+      "version": "17.14.1",
+      "license": "MIT",
+      "repository": "https://github.com/microsoft/vstest",
+      "commit": "490850ae3fdc1b470e3804ceab4f6a41cf89ae51"
+    },
+    {
+      "id": "Microsoft.NETCore.App.Runtime.win-x64",
+      "version": "10.0.12",
+      "license": "MIT",
+      "repository": "https://github.com/dotnet/dotnet",
+      "commit": "95017c711e6afc1085133d440e42b4bd78155701"
+    },
+    {
+      "id": "Microsoft.TestPlatform.ObjectModel",
+      "version": "17.14.1",
+      "license": "MIT",
+      "repository": "https://github.com/microsoft/vstest",
+      "commit": "490850ae3fdc1b470e3804ceab4f6a41cf89ae51"
+    },
+    {
+      "id": "Microsoft.TestPlatform.TestHost",
+      "version": "17.14.1",
+      "license": "MIT",
+      "repository": "https://github.com/microsoft/vstest",
+      "commit": "490850ae3fdc1b470e3804ceab4f6a41cf89ae51"
+    },
+    {
+      "id": "Microsoft.WindowsDesktop.App.Runtime.win-x64",
+      "version": "10.0.12",
+      "license": "MIT",
+      "repository": "https://github.com/dotnet/dotnet",
+      "commit": "95017c711e6afc1085133d440e42b4bd78155701"
+    },
+    {
+      "id": "Newtonsoft.Json",
+      "version": "13.0.3",
+      "license": "MIT",
+      "repository": "https://github.com/JamesNK/Newtonsoft.Json",
+      "commit": "0a2e291c0d9c0c7675d445703e51750363a549ef"
+    },
+    {
+      "id": "xunit",
+      "version": "2.9.3",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/xunit/xunit",
+      "commit": "9712244020d385955d33136b3fe3e87de43539cd"
+    },
+    {
+      "id": "xunit.abstractions",
+      "version": "2.0.3",
+      "license": "Apache-2.0 (upstream xunit.abstractions)",
+      "repository": null,
+      "commit": null
+    },
+    {
+      "id": "xunit.analyzers",
+      "version": "1.18.0",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/xunit/xunit.analyzers",
+      "commit": "2620a4ddabcba16ceb64ea9ad19c566252015fe8"
+    },
+    {
+      "id": "xunit.assert",
+      "version": "2.9.3",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/xunit/xunit",
+      "commit": "9712244020d385955d33136b3fe3e87de43539cd"
+    },
+    {
+      "id": "xunit.core",
+      "version": "2.9.3",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/xunit/xunit",
+      "commit": "9712244020d385955d33136b3fe3e87de43539cd"
+    },
+    {
+      "id": "xunit.extensibility.core",
+      "version": "2.9.3",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/xunit/xunit",
+      "commit": "9712244020d385955d33136b3fe3e87de43539cd"
+    },
+    {
+      "id": "xunit.extensibility.execution",
+      "version": "2.9.3",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/xunit/xunit",
+      "commit": "9712244020d385955d33136b3fe3e87de43539cd"
+    },
+    {
+      "id": "xunit.runner.visualstudio",
+      "version": "3.1.4",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/xunit/visualstudio.xunit",
+      "commit": "50e68bbb8b9ddd4b1bbb95d062b62010caf99909"
+    },
+    {
+      "id": "ZstdSharp.Port",
+      "version": "0.8.8",
+      "license": "MIT",
+      "repository": "https://github.com/oleg-st/ZstdSharp.git",
+      "commit": "2cd0c019693bc786a5fe5c3be94e107b24e7267e"
+    }
+  ],
+  "license_files": [
+    {
+      "file": "ZstdSharp-MIT.txt",
+      "source": "https://raw.githubusercontent.com/oleg-st/ZstdSharp/2cd0c019693bc786a5fe5c3be94e107b24e7267e/LICENSE",
+      "sha256": "9a6a7216e532c4ee4f78881d31fb641c27148eb01b2d0e8e3235ffe9a70a662c"
+    },
+    {
+      "file": "Zstandard-BSD-3-Clause.txt",
+      "source": "https://raw.githubusercontent.com/facebook/zstd/v1.5.7/LICENSE",
+      "sha256": "7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8"
+    },
+    {
+      "file": "xunit-Apache-2.0.txt",
+      "source": "https://raw.githubusercontent.com/xunit/xunit/v2-2.9.3/license.txt",
+      "sha256": "e9dcf94cc4864ba47aeaaec879cfabaf3feadb813c77af480c3ad14c6de0ed79"
+    },
+    {
+      "file": "xunit-abstractions-Apache-2.0.txt",
+      "source": "https://raw.githubusercontent.com/xunit/abstractions.xunit/main/license.txt",
+      "sha256": "165b8b82cd9dd1076df2720c5cb60659da48efacfe944872e7b0f3b041ebd4c4"
+    },
+    {
+      "file": "VSTest-MIT.txt",
+      "source": "https://raw.githubusercontent.com/microsoft/vstest/v17.14.1/LICENSE",
+      "sha256": "4d0502953fdb7784a9ca9e1f7e93da5db076de7c52456d6a2a666327a1a9981d"
+    },
+    {
+      "file": "coverlet-MIT.txt",
+      "source": "https://raw.githubusercontent.com/coverlet-coverage/coverlet/v6.0.4/LICENSE",
+      "sha256": "5411d507bc9242b6acad10772a8f5a3ae217f494c419a206a3b6d849c6ccc1c0"
+    },
+    {
+      "file": "DeepSeek-Harness-MIT.txt",
+      "source": "https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/master/LICENSE",
+      "sha256": "ebb4f09972aee8608be255debaf78451a68e95c290f55c240dec2ecfa16ea6be"
+    },
+    {
+      "file": ".NET-Runtime-LICENSE.txt",
+      "source": "Exact installed/restored package license; see dependency inventory",
+      "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+    },
+    {
+      "file": ".NET-Runtime-THIRD-PARTY-NOTICES.txt",
+      "source": "Exact installed/restored package license; see dependency inventory",
+      "sha256": "6d15e10a101c6bfff2ab4429ed061bf76c456fc4b23ad6b03e0d0f8377148a21"
+    },
+    {
+      "file": ".NET-WindowsDesktop-LICENSE.txt",
+      "source": "Exact installed/restored package license; see dependency inventory",
+      "sha256": "a89886665765362eb77e0f8e26602c924520041d1711b2eedc136434fe4d01ab"
+    },
+    {
+      "file": ".NET-SDK-LICENSE.txt",
+      "source": "Exact installed/restored package license; see dependency inventory",
+      "sha256": "7f6839a61ce892b79c6549e2dc5a81fdbd240a0b260f8881216b45b7fda8b45d"
+    },
+    {
+      "file": ".NET-SDK-THIRD-PARTY-NOTICES.txt",
+      "source": "Exact installed/restored package license; see dependency inventory",
+      "sha256": "deb4427a295e1ed474b0d81c5a0d972c1b550b9a715cda939cdfa9236b1b418f"
+    },
+    {
+      "file": "Newtonsoft.Json-MIT.txt",
+      "source": "Exact installed/restored package license; see dependency inventory",
+      "sha256": "b98a397897ff55f76cddc380041507a95a896b2946e0188703bf0496793d6516"
+    },
+    {
+      "file": "Apache-2.0.txt",
+      "source": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "file": "xunit-analyzers-Apache-2.0.txt",
+      "source": "https://raw.githubusercontent.com/xunit/xunit.analyzers/2620a4ddabcba16ceb64ea9ad19c566252015fe8/LICENSE",
+      "sha256": "918c2d961b0b79dd3aaf50d00afa237940436dac80fee83de1ed646efc599d56"
+    },
+    {
+      "file": "xunit-runner-Apache-2.0.txt",
+      "source": "https://raw.githubusercontent.com/xunit/visualstudio.xunit/50e68bbb8b9ddd4b1bbb95d062b62010caf99909/License.txt",
+      "sha256": "2db414dcd8f29ebc03790a1386e0a6ded2bb8813ba6763bd5df100d6f78c1b3d"
+    },
+    {
+      "file": ".NET-WPF-THIRD-PARTY-NOTICES.txt",
+      "source": "https://raw.githubusercontent.com/dotnet/wpf/v10.0.12/THIRD-PARTY-NOTICES.TXT",
+      "sha256": "d23dba2fee20c6b59d8f7088ee9ed372459c952a319b7ca90f3eec370cc76eb9"
+    },
+    {
+      "file": ".NET-WinForms-THIRD-PARTY-NOTICES.txt",
+      "source": "https://raw.githubusercontent.com/dotnet/winforms/v10.0.12/THIRD-PARTY-NOTICES.TXT",
+      "sha256": "5a412b38efae0b162dc0893b319023f4cd14a8985a0f9f9ae01ac052b37a36eb"
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+<Application x:Class="QuotaMonitor.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" ShutdownMode="OnExplicitShutdown">
+ <Application.Resources>
+  <!-- Island palette: true-black glass, three ink steps, fixed platform hues (validated for CVD on black). -->
+  <SolidColorBrush x:Key="Glass" Color="#000000"/>
+  <SolidColorBrush x:Key="Ink" Color="#F2F3F5"/>
+  <SolidColorBrush x:Key="Ink2" Color="#A4A9B3"/>
+  <SolidColorBrush x:Key="Ink3" Color="#7A808A"/>
+  <SolidColorBrush x:Key="Hairline" Color="#1CFFFFFF"/>
+  <SolidColorBrush x:Key="Track" Color="#1F2125"/>
+  <SolidColorBrush x:Key="Raised" Color="#141518"/>
+  <SolidColorBrush x:Key="Warn" Color="#FAB219"/>
+  <SolidColorBrush x:Key="Muted" Color="#92969F"/>
+  <FontFamily x:Key="NumFont">Bahnschrift</FontFamily>
+  <FontFamily x:Key="TextFont">Segoe UI Variable Text, Segoe UI, Microsoft YaHei UI</FontFamily>
+  <FontFamily x:Key="SmallFont">Segoe UI Variable Small, Segoe UI, Microsoft YaHei UI</FontFamily>
+  <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+  <BooleanToVisibilityConverter x:Key="BoolVisibility"/>
+
+  <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#ECEEF2"/><Setter Property="FontFamily" Value="Segoe UI"/><Setter Property="TextWrapping" Value="Wrap"/></Style>
+  <Style x:Key="Name" TargetType="TextBlock"><Setter Property="FontFamily" Value="{StaticResource NumFont}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="13"/><Setter Property="Foreground" Value="{StaticResource Ink}"/><Setter Property="TextWrapping" Value="NoWrap"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
+  <Style x:Key="Caption" TargetType="TextBlock"><Setter Property="FontFamily" Value="{StaticResource SmallFont}"/><Setter Property="FontSize" Value="11.5"/><Setter Property="Foreground" Value="{StaticResource Ink2}"/><Setter Property="TextWrapping" Value="NoWrap"/><Setter Property="TextTrimming" Value="CharacterEllipsis"/></Style>
+  <Style x:Key="Micro" TargetType="TextBlock" BasedOn="{StaticResource Caption}"><Setter Property="FontSize" Value="10.5"/><Setter Property="Foreground" Value="{StaticResource Ink3}"/></Style>
+  <Style x:Key="Readout" TargetType="TextBlock"><Setter Property="FontFamily" Value="{StaticResource NumFont}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Foreground" Value="{StaticResource Ink}"/><Setter Property="TextWrapping" Value="NoWrap"/></Style>
+
+  <Style TargetType="Button"><Setter Property="Foreground" Value="#ECEEF2"/><Setter Property="Background" Value="#24262C"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="13,8"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#353840"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value="0.5"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
+  <Style x:Key="IconButton" TargetType="Button">
+   <Setter Property="Width" Value="28"/><Setter Property="Height" Value="28"/><Setter Property="Foreground" Value="{StaticResource Ink2}"/><Setter Property="Background" Value="Transparent"/>
+   <Setter Property="FontFamily" Value="{StaticResource IconFont}"/><Setter Property="FontSize" Value="13"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Focusable" Value="False"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="14"><TextBlock Text="{TemplateBinding Content}" FontFamily="{StaticResource IconFont}" FontSize="{TemplateBinding FontSize}" Foreground="{TemplateBinding Foreground}" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="NoWrap"/></Border>
+    <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#1FFFFFFF"/><Setter Property="Foreground" Value="{StaticResource Ink}"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Surface" Property="Background" Value="#33FFFFFF"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <!-- Capsule meter: remaining quota drains like the island's own outline. -->
+  <Style x:Key="Meter" TargetType="ProgressBar">
+   <Setter Property="Height" Value="5"/><Setter Property="Maximum" Value="100"/><Setter Property="Foreground" Value="#19A67A"/><Setter Property="Background" Value="{StaticResource Track}"/><Setter Property="IsTabStop" Value="False"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ProgressBar"><Grid><Border x:Name="PART_Track" Background="{TemplateBinding Background}" CornerRadius="2.5"/><Border x:Name="PART_Indicator" HorizontalAlignment="Left" Background="{TemplateBinding Foreground}" CornerRadius="2.5"/></Grid></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style x:Key="Segment" TargetType="RadioButton">
+   <Setter Property="Foreground" Value="{StaticResource Ink3}"/><Setter Property="FontFamily" Value="{StaticResource SmallFont}"/><Setter Property="FontSize" Value="11"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Focusable" Value="False"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RadioButton"><Border x:Name="Pill" Background="Transparent" CornerRadius="9" Padding="9,2,9,3"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+    <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource Ink2}"/></Trigger><Trigger Property="IsChecked" Value="True"><Setter TargetName="Pill" Property="Background" Value="#2A2C31"/><Setter Property="Foreground" Value="{StaticResource Ink}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+  </Style>
+  <Style TargetType="ToolTip">
+   <Setter Property="Background" Value="#16181C"/><Setter Property="BorderBrush" Value="#2E3138"/><Setter Property="Foreground" Value="{StaticResource Ink}"/><Setter Property="FontFamily" Value="{StaticResource SmallFont}"/><Setter Property="FontSize" Value="11.5"/><Setter Property="Padding" Value="11,8"/><Setter Property="MaxWidth" Value="380"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToolTip"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="{TemplateBinding Padding}"><ContentPresenter><ContentPresenter.Resources><Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap"/><Setter Property="LineHeight" Value="17"/><Setter Property="Foreground" Value="#F2F3F5"/></Style></ContentPresenter.Resources></ContentPresenter></Border></ControlTemplate></Setter.Value></Setter>
+  </Style>
+
+  <Style TargetType="TextBox"><Setter Property="Background" Value="#22242B"/><Setter Property="Foreground" Value="#F1F2F4"/><Setter Property="BorderBrush" Value="#3B3E47"/><Setter Property="Padding" Value="9,7"/><Setter Property="CaretBrush" Value="White"/></Style>
+  <Style TargetType="PasswordBox"><Setter Property="Background" Value="#22242B"/><Setter Property="Foreground" Value="#F1F2F4"/><Setter Property="BorderBrush" Value="#3B3E47"/><Setter Property="Padding" Value="9,7"/></Style>
+  <Style TargetType="CheckBox"><Setter Property="Foreground" Value="#ECEEF2"/><Setter Property="Margin" Value="0,8,0,8"/></Style>
+  <Style TargetType="ScrollBar"><Setter Property="Width" Value="7"/><Setter Property="Background" Value="Transparent"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar"><Track x:Name="PART_Track" IsDirectionReversed="True"><Track.DecreaseRepeatButton><RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False"/></Track.DecreaseRepeatButton><Track.Thumb><Thumb><Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="#454A56" CornerRadius="3" Margin="1,0"/></ControlTemplate></Thumb.Template></Thumb></Track.Thumb><Track.IncreaseRepeatButton><RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False"/></Track.IncreaseRepeatButton></Track></ControlTemplate></Setter.Value></Setter></Style>
+ </Application.Resources>
+</Application>

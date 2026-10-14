@@ -1,0 +1,3 @@
+- insert:
+    - id: quota-monitor-balance-bridge
+      name: quota-monitor-dsh-balance-bridge

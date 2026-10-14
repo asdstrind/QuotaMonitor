@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <StartupObject>Showcase</StartupObject>
+    <UseAppHost>false</UseAppHost>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/QuotaMonitor/QuotaMonitor.csproj" /></ItemGroup>
+  <ItemGroup>
+    <Resource Include="../../src/QuotaMonitor/Assets/QuotaMonitor.ico" Link="Assets/QuotaMonitor.ico" />
+    <Resource Include="../../src/QuotaMonitor/Assets/Harness/*.svg" Link="Assets/Harness/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
