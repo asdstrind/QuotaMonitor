@@ -38,6 +38,11 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if(e.Args.Contains("--verify-v164")||e.Args.Contains("--preview-v164")){ShutdownMode=ShutdownMode.OnExplicitShutdown;_=VerifyDesign164Async(e.Args.Contains("--preview-v164"));return;}
+        if(e.Args.Contains("--verify-dsh-live-v163")){_=VerifyDshLive163Async();return;}
+        if(e.Args.Contains("--verify-v163")||e.Args.Contains("--preview-v163")||e.Args.Contains("--verify-v162")||e.Args.Contains("--preview-v162")||e.Args.Contains("--verify-v161")||e.Args.Contains("--preview-v161")){ShutdownMode=ShutdownMode.OnExplicitShutdown;_=VerifyV161Async(e.Args.Contains("--preview-v163")||e.Args.Contains("--preview-v162")||e.Args.Contains("--preview-v161"));return;}
+        if(e.Args.Contains("--verify-v160")||e.Args.Contains("--preview-v160")){_=VerifyV160Async(e.Args.Contains("--preview-v160"));return;}
+        if(e.Args.Contains("--verify-antigravity")){_=VerifyAntigravityAsync();return;}
         if(e.Args.Contains("--verify-settings")||e.Args.Contains("--settings-preview")){_=VerifySettingsAsync(e.Args.Contains("--settings-preview"));return;}
         if(e.Args.Contains("--verify-morph")||e.Args.Contains("--verify-island")||e.Args.Contains("--verify-ui-polish")||e.Args.Contains("--interaction-preview")){ShutdownMode=ShutdownMode.OnExplicitShutdown;_=VerifyMorphAsync();return;}
         balanceVerification=e.Args.Contains("--verify-dsh-balance");
@@ -52,24 +57,25 @@ public partial class App : System.Windows.Application
         store=new SettingsStore(root);settings=store.Load();secrets=new CredentialStore();
         if(balanceVerification){settings.CodexEnabled=false;settings.ClaudeEnabled=false;settings.DshRefreshSeconds=30;}
         http=new HttpClient(new HttpClientHandler{AllowAutoRedirect=false}){Timeout=Timeout.InfiniteTimeSpan};
-        var cached=store.LoadCache().Select(s=>s.AccountBalance?.Balance is {} balance?s with{AccountBalance=new(balance,DshBalanceState.Stale,"上次余额缓存；等待官方客户端快照。")}:s).ToArray();
+        var cached=store.LoadCache().Select(s=>s.ProviderId=="antigravity"?s with{ConnectionStatus=ConnectionStatus.Stale}:s.AccountBalance?.Balance is {} balance?s with{AccountBalance=new(balance,DshBalanceState.Stale,"上次余额缓存；等待官方客户端快照。")}:s).ToArray();
         balanceReceiver=new DshBalanceReceiver(cachedBalance:cached.FirstOrDefault(s=>s.ProviderId=="dsh")?.AccountBalance?.Balance);
         // One adapter instance per platform serves both live values and daily history.
         var claude=new ClaudeCNAdapter(http,settings,secrets);var dsh=new DshAdapter(settings,balanceReceiver);
-        coordinator=new RefreshCoordinator(settings,[new CodexAdapter(settings),claude,dsh],cached);
+        coordinator=new RefreshCoordinator(settings,[new CodexAdapter(settings),claude,dsh,new AntigravityAdapter()],cached);
         var cachedHistory=balanceVerification?[]:store.LoadHistory();
-        history=new HistoryCoordinator(settings,[new CodexHistorySource(),claude,dsh],cachedHistory);
+        history=new HistoryCoordinator(settings,[new CodexHistorySource(),claude,dsh,new AntigravityHistorySource()],cachedHistory);
         vm=new MonitorViewModel();foreach(var s in coordinator.Snapshots)vm.Providers.Add(new(s));
         vm.SetScale(settings.HeatmapScale=="relative");
         foreach(var h in cachedHistory)vm.UpdateHistory(h,history.Today);
         vm.Rebuild(history.Today);
+        vm.ApplyVisibility(settings,history.Today);
         vm.ScaleChanged+=relative=>{settings.HeatmapScale=relative?"relative":"unified";SaveSettings();};
         vm.RefreshCommand=new ActionCommand(()=>_=Refresh());vm.SettingsCommand=new ActionCommand(OpenSettings);vm.ExitCommand=new ActionCommand(()=>_=ExitAsync());
         coordinator.Updated+=s=>Dispatcher.InvokeAsync(()=>{vm.Providers.First(x=>x.Id==s.ProviderId).Update(s);vm.UpdateAlerts(settings);});
         history.Updated+=h=>Dispatcher.InvokeAsync(()=>{if(exiting)return;vm.UpdateHistory(h,history.Today);SaveHistory(false);});
         island=new IslandWindow(vm,settings,SaveSettings);MainWindow=island;island.Closing+=(_,args)=>{if(!exiting){args.Cancel=true;island.Hide();}};island.Show();
         using(var iconStream=GetResourceStream(new Uri("pack://application:,,,/Assets/QuotaMonitor.ico")).Stream)trayIcon=new Icon(iconStream);
-        tray=new Forms.NotifyIcon{Icon=trayIcon,Text="AI Harness Quota Monitor",Visible=true};
+        tray=new Forms.NotifyIcon{Icon=trayIcon,Text="",Visible=true};
         var menu=new Forms.ContextMenuStrip();menu.Items.Add("刷新",null,(_,_)=>Dispatcher.Invoke(()=>_=Refresh()));menu.Items.Add("设置",null,(_,_)=>Dispatcher.Invoke(OpenSettings));menu.Items.Add("退出",null,(_,_)=>Dispatcher.Invoke(()=>_=ExitAsync()));tray.ContextMenuStrip=menu;tray.DoubleClick+=(_,_)=>Dispatcher.Invoke(()=>{island.Show();island.SetState(IslandState.Collapsed);});
         tick.Tick+=(_,_)=>{foreach(var p in vm.Providers)p.Tick();vm.Tick(history.Today);vm.UpdateAlerts(settings);};tick.Start();
         if(store.LoadWarning is {} warning)vm.Notice=warning;
@@ -82,7 +88,7 @@ public partial class App : System.Windows.Application
     // History aggregates are persisted at most once a minute while running, and always on exit.
     private void SaveHistory(bool force){if(balanceVerification||(!force&&DateTimeOffset.UtcNow-historySaved<TimeSpan.FromMinutes(1)))return;try{store.SaveHistory(vm.Histories);historySaved=DateTimeOffset.UtcNow;}catch(IOException){}catch(UnauthorizedAccessException){}}
     private async Task Refresh(){vm.Message="正在刷新各平台…";try{await Task.WhenAll(coordinator.RefreshAsync(true),history.RefreshAsync(true));}catch(OperationCanceledException){}finally{if(!exiting)vm.Message="已刷新 "+DateTime.Now.ToString("HH:mm:ss")+"；各平台独立读取";}}
-    private void OpenSettings(){if(preferences is {IsVisible:true}){preferences.Activate();return;}preferences=new SettingsWindow(settings,store,secrets,http,()=>{vm.UpdateAlerts(settings);island.Reposition();_=Refresh();},()=>vm.Providers.FirstOrDefault(p=>p.Id=="dsh")?.Snapshot.CurrentModel){Owner=island};preferences.Closed+=(_,_)=>preferences=null;preferences.Show();}
+    private void OpenSettings(){if(preferences is {IsVisible:true}){preferences.Activate();return;}preferences=new SettingsWindow(settings,store,secrets,http,()=>{vm.ApplyVisibility(settings,history.Today);island.Reposition();_=Refresh();},()=>vm.Providers.FirstOrDefault(p=>p.Id=="dsh")?.Snapshot.CurrentModel){Owner=island};preferences.Closed+=(_,_)=>preferences=null;preferences.Show();}
     private async Task ExitAsync(){if(exiting)return;exiting=true;tick.Stop();preferences?.Close();tray?.Dispose();await coordinator.DisposeAsync();await history.DisposeAsync();await balanceReceiver.DisposeAsync();try{store.SaveCache(coordinator.Snapshots);}catch(IOException){}SaveHistory(true);http.Dispose();if(smokeFolder is {} folder)await File.WriteAllTextAsync(Path.Combine(folder,"shutdown.json"),"{\"CoordinatorDisposed\":true,\"HistoryCoordinatorDisposed\":true,\"TrayDisposed\":true,\"HttpDisposed\":true,\"BalanceReceiverDisposed\":true}");island.Close();Shutdown();}
     private static int Option(string[] args,string name,int fallback)=>int.TryParse(args.SkipWhile(x=>x!=name).Skip(1).FirstOrDefault(),out var n)?n:fallback;
     private async Task SmokeAsync(string[] args)

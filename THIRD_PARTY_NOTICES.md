@@ -1,6 +1,6 @@
 # Third-party licenses and notices
 
-QuotaMonitor v1.5.3 and Balance Bridge 1.1.0 use the project [MIT license](LICENSE).
+QuotaMonitor v1.6.4 and Balance Bridge 1.2.0 use the project [MIT license](LICENSE).
 Third-party software keeps its own terms. Third-party logos, names and marks
 are excluded from the project MIT grant; see [TRADEMARKS.md](TRADEMARKS.md).
 
@@ -19,6 +19,12 @@ apply to the Zstandard-derived code. There is no product dependency requiring
 the project's own source to be relicensed under copyleft. Runtime components
 remain subject to every applicable term in their full notices. Preserve these
 texts in binary redistributions; a link alone is not the binary notice bundle.
+
+The Antigravity history reader uses Windows' inbox `winsqlite3.dll`; no SQLite
+binary or new NuGet dependency is redistributed. Protocol research consulted
+CodexBar, Tokscale and ccusage (MIT at the inspected revisions). The C# reader
+is independently implemented; their source code is not bundled. See
+[history boundaries and research sources](docs/ANTIGRAVITY-HISTORY.md).
 
 ## Bridge host (not bundled)
 

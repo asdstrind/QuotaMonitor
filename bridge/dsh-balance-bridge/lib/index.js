@@ -5,6 +5,7 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import { wallets } from './projection.js';
 import { credentialKey } from '@deepseek-ai/dsh-credentials';
 import { BalancePoller } from './poller.js';
+import { getDshRuntimeVersion } from '@deepseek-ai/dsh-app-boot';
 
 const initializers = [];
 const pipe = '\\\\.\\pipe\\QuotaMonitor.DshBalance.' + createHash('sha256').update(homedir().toLowerCase()).digest('hex').slice(0, 16);
@@ -13,7 +14,8 @@ export class BalanceBridge extends TypertRemoteService {
   constructor(ctx, config = {}) {
     super(ctx, 'quotaBalanceBridge');
     for (const initialize of initializers) initialize.call(this);
-    this.latest = { protocol: 1, sourceVersion: '0.2.0-rc.2', state: 'loading' };
+    this.sourceVersion = getDshRuntimeVersion();
+    this.latest = { protocol: 1, sourceVersion: this.sourceVersion, state: 'loading' };
     this.closed = false;
     this.pipeName = config.pipeName ?? pipe;
     this.delay = 1000;
@@ -23,7 +25,9 @@ export class BalanceBridge extends TypertRemoteService {
     }, 'balance bridge pipe lifetime');
     ctx.inject(['deepseekAccount'], scope => {
       this.autonomous = true;
-      const poller = new BalancePoller(scope.deepseekAccount, snapshot => this.accept(snapshot));
+      const poller = new BalancePoller(scope.deepseekAccount, snapshot => this.accept(snapshot), {
+        client: () => ({ version: this.sourceVersion, locale: Intl.DateTimeFormat().resolvedOptions().locale, timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60 })
+      });
       const accountKey = credentialKey('deepseek-account-platform', 'default');
       scope.on('credentials/record-updated', key => { if (key === accountKey) poller.changed(); });
       scope.on('deepseek-account/signed-out', () => poller.changed());
@@ -37,7 +41,7 @@ export class BalanceBridge extends TypertRemoteService {
   }
   accept(snapshot) {
     if (!snapshot || !['ready', 'loading', 'failed', 'signed-out', 'unavailable'].includes(snapshot.state)) return false;
-    const next = { protocol: 1, sourceVersion: '0.2.0-rc.2', state: snapshot.state };
+    const next = { protocol: 1, sourceVersion: this.sourceVersion, state: snapshot.state };
     if (snapshot.state === 'ready') {
       const at = Date.parse(snapshot.observedAt);
       if (!Number.isFinite(at) || at > Date.now() + 5000) return false;

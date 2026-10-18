@@ -1,6 +1,6 @@
-# DSH Balance Bridge 1.1
+# DSH Balance Bridge 1.2
 
-目标宿主：官方 Windows Desktop 0.2.0-rc.2 / Cordis 4.0.4。兼容宿主提供 peerDependencies；源码位于 lib/ 与 cordis.patch.yml，无需编译或安装脚本。
+目标宿主：官方 Windows Desktop 0.2.0-rc.2、0.2.1-rc.1、0.2.1-rc.2 / Cordis 4.0.4–4.0.5。兼容宿主提供 peerDependencies；源码位于 lib/ 与 cordis.patch.yml，无需编译或安装脚本。精确列出已核对的版本，不授予不兼容插件豁免。
 
 ## 安装与更新
 
@@ -11,11 +11,11 @@ $bridgeSource = (Resolve-Path ./bridge/dsh-balance-bridge).Path
 dsh plugin --profile desktop add $bridgeSource --ignore-scripts
 ```
 
-已有源码链接安装只需更新源码，在没有运行任务时正常退出并重启 DSH。复制安装应通过官方插件管理器更新至 1.1.0。CLI 不在 PATH 时使用自己的官方安装位置。不要修改认证配置。
+已有源码链接安装只需更新源码，在没有运行任务时正常退出并重启 DSH。复制安装应通过官方插件管理器更新至 1.2.0。CLI 不在 PATH 时使用自己的官方安装位置。不要修改认证配置。
 
 ## 后台查询
 
-Host 中的现有 Bridge 注入 deepseekAccount，启动后立即调用官方 getState() / getBalance(client)，成功后每 3 分钟查询一次。不依赖 Slot、客户端挂载、余额页面或 UI 刷新，不建立第二套认证或 HTTP 查询。client 仅含兼容宿主版本、系统 locale 与时区偏移。
+Host 中的现有 Bridge 注入 deepseekAccount，启动后立即调用官方 getState() / getBalance(client)，成功后每 3 分钟查询一次。不依赖 Slot、客户端挂载、余额页面或 UI 刷新，不建立第二套认证或 HTTP 查询。client 仅含由官方 getDshRuntimeVersion() 提供的实际宿主版本、系统 locale 与时区偏移。协议 1 的 sourceVersion 同样反映真实 Host；v1.6.4 接收器接受上述三个版本。
 
 插件不读取凭据存储、不获取 Token、不调用登录/退出。官方服务负责钱包解析、请求超时和账号生命周期。HTTP 202 只有在官方服务返回完整 ready 钱包时才接受；空响应、未完成或错误响应按失败处理，不当作零余额。官方服务遇到真实 401/40003 时仍按既有逻辑使登录过期；插件不绕过该逻辑，也不反复查询退出账号。
 

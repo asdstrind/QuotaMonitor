@@ -7,15 +7,25 @@ public sealed record GridLane(string ProviderId, LaneState State, long? Tokens, 
 {
     public bool HasUsage => Tokens > 0 && State is LaneState.Exact or LaneState.Estimated or LaneState.Partial;
 }
-public sealed record GridDay(DateOnly Date, int Column, int Row, bool IsToday, IReadOnlyList<GridLane> Lanes);
+public sealed record GridDay(DateOnly Date, int Column, int Row, bool IsToday, IReadOnlyList<GridLane> Lanes)
+{
+    public GridLane? Dominant => Lanes.Where(l => l.HasUsage).OrderByDescending(l => l.Tokens).FirstOrDefault();
+    public long? Total => SumKnown(Lanes.Select(l => l.Tokens));
+    public bool Incomplete => Lanes.Count == 0 || Lanes.Any(l => l.State is LaneState.Missing or LaneState.Partial || l.Excluded > 0);
+    internal static long? SumKnown(IEnumerable<long?> values)
+    {
+        var known = values.OfType<long>().ToArray();
+        if (known.Length == 0) return null;
+        try { return known.Aggregate(0L, (sum, value) => checked(sum + value)); } catch (OverflowException) { return null; }
+    }
+}
 public sealed record GridProvider(string Id, long? Reference, long Tokens, long Requests, decimal? Cost, int ActiveDays, int CoveredDays, DateOnly? CoverageStart, bool HasEstimated, bool HasPartial, UsageHistory? History);
 public sealed record GridMonth(int Column, DateOnly Month);
 
 /// <summary>
-/// Week-column calendar (Monday first) over a fixed window. Heights are log10 of daily tokens:
-/// the shared scale spans <see cref="SharedDecades"/> orders of magnitude below the pooled 95th
-/// percentile of all active provider-days, so every platform is drawn on one comparable axis;
-/// the relative scale spans <see cref="RelativeDecades"/> below each provider's own 95th percentile.
+/// Monday-first week-column calendar over a fixed window. Combined square intensity is
+/// log1p of the daily total, clipped at the enabled daily totals' P95. Single-provider preview
+/// uses its own daily P95. Legacy lane levels remain available to diagnostics.
 /// </summary>
 public sealed record UsageGrid(DateOnly Start, DateOnly Today, int Weeks, IReadOnlyList<GridDay> Days, IReadOnlyList<GridProvider> Providers, IReadOnlyList<GridMonth> Months, long? SharedReference)
 {
@@ -23,7 +33,7 @@ public sealed record UsageGrid(DateOnly Start, DateOnly Today, int Weeks, IReadO
     public const double SharedDecades = 4;
     public const double RelativeDecades = 3;
     public const double MinLevel = 0.06;
-    public static readonly IReadOnlyList<string> Order = ["codex", "claude", "dsh"];
+    public static readonly IReadOnlyList<string> Order = ["codex", "claude", "dsh", "antigravity"];
 
     public static DateOnly WindowStart(DateOnly today, int weeks)
     {
@@ -33,6 +43,10 @@ public sealed record UsageGrid(DateOnly Start, DateOnly Today, int Weeks, IReadO
 
     public static double Level(long tokens, long reference, double decades) =>
         tokens <= 0 ? 0 : reference <= 0 ? 1 : Math.Clamp(1 + Math.Log10((double)tokens / reference) / decades, MinLevel, 1);
+    // Winsorize at the selected window's P95; log1p opens up the low/mid range.
+    // One reference for enabled daily totals, one reference for a focused Harness.
+    public static double TileLevel(long tokens, long reference) => tokens <= 0 ? 0 :
+        reference <= 0 ? 1 : .08 + .92 * Math.Log10(1 + 9 * Math.Min(1, (double)tokens / reference));
 
     public static long? Percentile95(IReadOnlyCollection<long> values)
     {
@@ -44,25 +58,30 @@ public sealed record UsageGrid(DateOnly Start, DateOnly Today, int Weeks, IReadO
     public GridDay? DayAt(int column, int row) =>
         column < 0 || row is < 0 or > 6 || column >= Weeks ? null : Days.ElementAtOrDefault(column * 7 + row);
 
-    public static UsageGrid Build(IEnumerable<UsageHistory?> histories, DateOnly today, int weeks = DefaultWeeks)
+    public static UsageGrid Build(IEnumerable<UsageHistory?> histories, DateOnly today, int weeks = DefaultWeeks, IEnumerable<string>? visible = null)
     {
+        weeks = Math.Clamp(weeks, 1, 104);
+        var selected = (visible ?? Order).ToHashSet();
+        var order = Order.Where(selected.Contains).ToArray();
         var start = WindowStart(today, weeks);
         var map = histories.OfType<UsageHistory>().GroupBy(h => h.ProviderId).ToDictionary(g => g.Key, g => g.Last());
-        var lookups = Order.ToDictionary(id => id, id => map.TryGetValue(id, out var h)
-            ? h.Days.Where(d => d.Date >= start && d.Date <= today).GroupBy(d => d.Date).ToDictionary(g => g.Key, g => g.Last())
+        var lookups = order.ToDictionary(id => id, id => map.TryGetValue(id, out var h)
+            ? h.Days.Where(d => d.Date >= start && d.Date <= today).GroupBy(d => d.Date).ToDictionary(g => g.Key, Deduplicate)
             : new Dictionary<DateOnly, UsageDay>());
         var providers = new List<GridProvider>();
         var pooled = new List<long>();
-        foreach (var id in Order)
+        foreach (var id in order)
         {
             var days = lookups[id].Values.ToArray();
             var positive = days.Where(d => d.Tokens > 0).Select(d => d.Tokens!.Value).ToArray();
-            pooled.AddRange(positive);
             // A window cost is only shown when every covered day carries one.
             decimal? cost = days.Length > 0 && days.All(d => d.Cost is not null) ? days.Sum(d => d.Cost!.Value) : null;
             providers.Add(new GridProvider(id, Percentile95(positive), days.Sum(d => d.Tokens ?? 0), days.Sum(d => d.Requests ?? 0), cost, positive.Length, days.Length,
                 days.Length > 0 ? days.Min(d => d.Date) : null, days.Any(d => d.Quality == UsageQuality.Estimated && d.Tokens > 0), days.Any(d => d.Quality == UsageQuality.Partial), map.GetValueOrDefault(id)));
         }
+        // One intensity axis from the enabled daily TOTALS, never independently normalized lanes.
+        foreach (var date in lookups.Values.SelectMany(l => l.Keys).Distinct())
+            if (GridDay.SumKnown(order.Select(id => lookups[id].GetValueOrDefault(date)?.Tokens)) is > 0 and var total) pooled.Add(total);
         var shared = Percentile95(pooled);
         var cells = new List<GridDay>();
         for (var date = start; date <= today; date = date.AddDays(1))
@@ -80,6 +99,14 @@ public sealed record UsageGrid(DateOnly Start, DateOnly Today, int Weeks, IReadO
         // The partial first month is labelled only when the next label leaves room for it.
         if (months.Count == 0 || months[0].Column >= 3) months.Insert(0, new(0, new DateOnly(start.Year, start.Month, 1)));
         return new UsageGrid(start, today, weeks, cells, providers, months, shared);
+    }
+
+    private static UsageDay Deduplicate(IGrouping<DateOnly, UsageDay> records)
+    {
+        var latest = records.OrderByDescending(d => d.FetchedAt).First();
+        var peers = records.Where(d => d.FetchedAt == latest.FetchedAt).Distinct().ToArray();
+        // Identical cache copies count once; contradictory peers cannot establish a daily amount.
+        return peers.Length == 1 ? latest : latest with { Tokens = null, Quality = UsageQuality.Partial, Excluded = Math.Max(1, latest.Excluded) };
     }
 
     private static GridLane Lane(string id, UsageDay? day, long? shared, long? own)

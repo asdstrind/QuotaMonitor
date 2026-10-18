@@ -75,3 +75,16 @@ VERIFICATION.md
 **/__pycache__/
 **/*.pyc
 **/.DS_Store
+
+# Local design/release evidence and analysis (keep off the public repository)
+docs/OPUS-DESIGN-REVIEW-*.md
+docs/VERIFICATION-*.md
+docs/UI-COMPARISON-*.html
+docs/design-v*/
+docs/RELEASE-v1.6.0.md
+docs/RELEASE-v1.6.1.md
+docs/RELEASE-v1.6.2.md
+docs/RELEASE-v1.6.3.md
+tools/analyze-v*.py
+tools/audit-v*.py
+tools/report-v*.py

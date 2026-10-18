@@ -1,6 +1,6 @@
 # Third-party marks
 
-QuotaMonitor's Capsule Q icon is the application's own primary brand. The three
+QuotaMonitor's Capsule Q icon is the application's own primary brand. The four
 embedded service logos are retained solely to identify the monitored services.
 
 | Asset | Rights holder | Provenance |
@@ -8,10 +8,11 @@ embedded service logos are retained solely to identify the monitored services.
 | Codex / OpenAI Blossom | OpenAI | [Original source](src/QuotaMonitor/Assets/Harness/SOURCES.md) |
 | Claude starburst | Anthropic | [Original source](src/QuotaMonitor/Assets/Harness/SOURCES.md) |
 | DSH / DeepSeek whale | DeepSeek and its respective rights holders | [Original source](src/QuotaMonitor/Assets/Harness/SOURCES.md) |
+| Google Antigravity | Google LLC | [Official Press Assets](https://antigravity.google/press), Icon - White; original SVG retained |
 
 All third-party names, logos and trademarks belong to their respective rights
 holders. QuotaMonitor is an independent personal project. It does not represent
-OpenAI, Anthropic, DeepSeek or ClaudeCN and has no official sponsorship,
+OpenAI, Anthropic, DeepSeek, ClaudeCN or Google and has no official sponsorship,
 endorsement or affiliation. ClaudeCN is a third-party service, not Anthropic's
 official account interface; the Claude mark does not imply otherwise.
 

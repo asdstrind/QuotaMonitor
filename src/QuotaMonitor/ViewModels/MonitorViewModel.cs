@@ -63,17 +63,17 @@ public sealed class ProviderViewModel(ProviderSnapshot snapshot) : Observable
     private ProviderSnapshot data=snapshot;
     public ProviderSnapshot Snapshot=>data;
     public string Id=>data.ProviderId;
-    public string Name=>data.DisplayName;
+    public string Name=>Id=="claude"?"ClaudeCN":data.DisplayName;
     public string Accent=>AccentOf(Id);
-    public static string AccentOf(string id)=>id switch{"codex"=>"#19A67A","claude"=>"#E2672F",_=>"#4A8AF0"};
-    public string Status=>Id=="dsh"&&data.ConnectionStatus!=ConnectionStatus.Disabled?BalanceState switch{DshBalanceState.Ready=>"BALANCE LIVE"+(data.ConnectionStatus==ConnectionStatus.Partial?" · USAGE PARTIAL":""),DshBalanceState.Stale=>"BALANCE STALE",_=>"BALANCE UNAVAILABLE"}:data.ConnectionStatus switch{ConnectionStatus.Ready=>IsStale?"STALE":"LIVE",ConnectionStatus.Partial=>"PARTIAL",ConnectionStatus.Disabled=>"OFF",ConnectionStatus.Loading=>"LOADING",_=>"UNAVAILABLE"};
+    public static string AccentOf(string id)=>id switch{"codex"=>"#19A67A","claude"=>"#E2672F","antigravity"=>"#B59AF7",_=>"#4A8AF0"};
+    public string Status=>Id=="dsh"&&data.ConnectionStatus!=ConnectionStatus.Disabled?BalanceState switch{DshBalanceState.Ready=>"BALANCE LIVE"+(data.ConnectionStatus==ConnectionStatus.Partial?" · USAGE PARTIAL":""),DshBalanceState.Stale=>"BALANCE STALE",_=>"BALANCE UNAVAILABLE"}:data.ConnectionStatus switch{ConnectionStatus.Ready=>IsStale?"STALE":"LIVE",ConnectionStatus.Partial=>"PARTIAL",ConnectionStatus.Disabled=>"OFF",ConnectionStatus.Stale=>"STALE",ConnectionStatus.Loading=>"LOADING",_=>"UNAVAILABLE"};
     private DshBalanceState BalanceState=>data.AccountBalance?.At(DateTimeOffset.UtcNow)??DshBalanceState.Unavailable;
-    public bool IsStale=>data.LastUpdated is {} at&&DateTimeOffset.UtcNow-at>TimeSpan.FromMinutes(Id=="dsh"?4:7);
-    public string Compact=>data.ConnectionStatus==ConnectionStatus.Disabled?"—":Id=="dsh"?BalanceState==DshBalanceState.Ready?DshBalancePresentation.Normal(data.AccountBalance?.Balance):BalanceState==DshBalanceState.Stale?"Stale":"—":data.ConnectionStatus==ConnectionStatus.Loading||IsStale||data.ConnectionStatus==ConnectionStatus.Unavailable?"—":Id=="codex"?data.RemainingPercent is {} p?$"{p:0}%":"—":data.RemainingBalance is {} b?$"{(data.Currency=="CNY"?"¥":"$")}{b:0.00}":"—";
+    public bool IsStale=>data.ConnectionStatus==ConnectionStatus.Stale||data.LastUpdated is {} at&&DateTimeOffset.UtcNow-at>TimeSpan.FromMinutes(Id=="dsh"?4:Id=="antigravity"?3:7);
+    public string Compact=>data.ConnectionStatus==ConnectionStatus.Disabled?"—":Id=="dsh"?BalanceState==DshBalanceState.Ready?DshBalancePresentation.Normal(data.AccountBalance?.Balance):BalanceState==DshBalanceState.Stale?"Stale":"—":IsStale?Id=="antigravity"?"Stale":"—":data.ConnectionStatus==ConnectionStatus.Loading||data.ConnectionStatus==ConnectionStatus.Unavailable?"—":Id=="antigravity"?string.Join(" / ",new[]{"gemini-weekly","3p-weekly"}.Select(id=>data.Windows.FirstOrDefault(w=>w.Bucket==id) is {} w?$"{w.RemainingPercent:0}%":"—")):Id=="codex"?data.RemainingPercent is {} p?$"{p:0}%":"—":data.RemainingBalance is {} b?$"{(data.Currency=="CNY"?"¥":"$")}{b:0.00}":"—";
     public string CompactUpdated=>Id=="dsh"&&data.AccountBalance?.Balance is {} balance?balance.ObservedAt.LocalDateTime.ToString("HH:mm:ss"):"";
-    public string CompactTooltip=>Id=="dsh"?$"充值余额\n{DshBalancePresentation.Exact(data.AccountBalance?.Balance?.NormalWallets)}\n赠送余额\n{DshBalancePresentation.Exact(data.AccountBalance?.Balance?.BonusWallets)}\n{Updated}":Updated;
+    public string CompactTooltip=>Tooltip;
     public string Hero=>Id=="dsh"?DshBalancePresentation.Normal(data.AccountBalance?.Balance):Id=="codex"?data.RemainingPercent is {} p?$"{p:0}%":"—":data.RemainingBalance is {} b?$"${b:0.00}":"—";
-    public string Updated=>Id=="dsh"?data.AccountBalance?.Balance is {} balance?$"余额同步 {balance.ObservedAt.LocalDateTime:MM-dd HH:mm:ss}":"余额尚未同步":data.LastUpdated is {} at?$"更新 {at.LocalDateTime:HH:mm:ss}" : "尚未更新";
+    public string Updated=>Id=="dsh"?data.AccountBalance?.Balance is {} balance?$"余额同步 {balance.ObservedAt.LocalDateTime:MM-dd HH:mm:ss}":"余额尚未同步":data.LastUpdated is {} at?$"{(Id=="antigravity"?"本地读取":"更新")} {at.LocalDateTime:HH:mm:ss}" : "尚未更新";
     public string Error=>string.Join("\n",new[]{data.AccountBalance?.Error,data.ErrorMessage}.Where(x=>!string.IsNullOrEmpty(x)));
     public bool HasError=>!string.IsNullOrEmpty(Error);
     public IEnumerable<MetricRow> Rows=>Id switch{
@@ -100,6 +100,10 @@ public sealed class ProviderViewModel(ProviderSnapshot snapshot) : Observable
     {
         get
         {
+            if(Id=="antigravity")return new[]{("gemini-weekly","Gemini"),("3p-weekly","Claude/GPT")}.Select(pair=>{
+                var w=data.Windows.FirstOrDefault(w=>w.Bucket==pair.Item1);
+                return new QuotaGauge(pair.Item2,w?.RemainingPercent??0,w is null?"—":w.RemainingPercent.ToString("0",CultureInfo.InvariantCulture),w?.ResetAt is {} r?$"{r.LocalDateTime:MM-dd HH:mm} 重置":"重置时间未知",w is not null&&w.RemainingPercent<=15);
+            }).ToArray();
             if(data.Windows.Count==0)return [];
             var bucket=data.Windows.Any(w=>w.Bucket=="codex")?"codex":data.Windows[0].Bucket;
             var now=DateTimeOffset.UtcNow;
@@ -107,7 +111,8 @@ public sealed class ProviderViewModel(ProviderSnapshot snapshot) : Observable
                 .Select(w=>new QuotaGauge(Format.Window(w.DurationMinutes),w.RemainingPercent,w.RemainingPercent.ToString("0",CultureInfo.InvariantCulture),w.ResetAt is {} r?Format.Countdown(r-now):"重置时间未知",w.RemainingPercent<=15)).ToArray();
         }
     }
-    public bool HasGauges=>data.Windows.Count>0;
+    public bool HasGauges=>data.Windows.Count>0||Id=="antigravity";
+    public bool IsQuota=>Id is "codex" or "antigravity";
     public string EmptyText=>data.ConnectionStatus==ConnectionStatus.Disabled?"已在设置中关闭":data.ConnectionStatus==ConnectionStatus.Loading?"正在读取额度":"暂无额度数据";
     private string? AmountText=>Id switch{
         "claude"=>data.RemainingBalance is {} b?Format.Usd(b):null,
@@ -127,9 +132,11 @@ public sealed class ProviderViewModel(ProviderSnapshot snapshot) : Observable
         get
         {
             var lines=new List<string>();
-            if(Id=="codex"){
+            if(Id is "codex" or "antigravity"){
+                lines.Add(Status);
                 foreach(var w in data.Windows)lines.Add($"{w.Bucket} {Format.Window(w.DurationMinutes)}：剩余 {w.RemainingPercent:0.#}%（已用 {w.UsedPercent:0.##}%）"+(w.ResetAt is {} r?$"，{r.LocalDateTime:MM-dd HH:mm} 重置":""));
-                lines.Add(data.LastUpdated is {} at?$"更新于 {at.LocalDateTime:HH:mm:ss}":"尚未成功读取");
+                lines.Add(Updated);
+                if(Id=="antigravity")lines.Add("仅两项 Weekly 额度池。服务端未提供数据生成时间；本地读取时间表示响应取得时间。Token 历史独立读取，不按额度反推。");
             }else if(Id=="claude"){
                 if(data.RemainingBalance is {} b)lines.Add($"账户余额 ${b:0.000000}");
                 if(data.TodayCost is {} c)lines.Add($"今日使用费用 ${c:0.000000}");
@@ -179,9 +186,22 @@ public sealed class MonitorViewModel : Observable
     }
     public IReadOnlyList<LowQuotaAlert> MinimalAlerts=>LowQuotaAlerts.Minimal(Alerts);
     public ObservableCollection<ProviderViewModel> Providers {get;}=[];
+    private string[] visibleIds=UsageGrid.Order.ToArray();
+    public IReadOnlyList<ProviderViewModel> VisibleProviders=>Providers.Where(p=>visibleIds.Contains(p.Id)).ToArray();
+    public bool HasVisibleProviders=>VisibleProviders.Count>0;
+    public bool NoVisibleProviders=>!HasVisibleProviders;
+    public void ApplyVisibility(MonitorSettings settings,DateOnly today)
+    {
+        visibleIds=UsageGrid.Order.Where(settings.Visible).ToArray();
+        if(hoverLane is not null&&!visibleIds.Contains(hoverLane))hoverLane=null;
+        if(pinnedLane is not null&&!visibleIds.Contains(pinnedLane))pinnedLane=null;
+        Rebuild(today);Tip=null;
+        Changed(nameof(VisibleProviders));Changed(nameof(HasVisibleProviders));Changed(nameof(NoVisibleProviders));Changed(nameof(HoverLane));Changed(nameof(FocusLane));IntensityChanged();Changed(nameof(HeatmapMode));UpdateAlerts(settings);
+    }
     public ProviderViewModel Codex=>Providers.First(p=>p.Id=="codex");
     public ProviderViewModel Claude=>Providers.First(p=>p.Id=="claude");
     public ProviderViewModel Dsh=>Providers.First(p=>p.Id=="dsh");
+    public ProviderViewModel Antigravity=>Providers.First(p=>p.Id=="antigravity");
     public ICommand RefreshCommand {get;set;}=null!;
     public ICommand SettingsCommand {get;set;}=null!;
     public ICommand ExitCommand {get;set;}=null!;
@@ -202,21 +222,32 @@ public sealed class MonitorViewModel : Observable
     public bool UnifiedScale{get=>!relative;set=>RelativeScale=!value;}
     public event Action<bool>? ScaleChanged;
     private string? hoverLane,pinnedLane;
-    public string? HoverLane{get=>hoverLane;set{hoverLane=value;Changed();Changed(nameof(FocusLane));}}
-    public string? PinnedLane{get=>pinnedLane;set{pinnedLane=value;Lanes=Lanes.Select(l=>l with{Pinned=l.Id==value}).ToArray();Changed();Changed(nameof(FocusLane));Changed(nameof(Lanes));}}
+    public string? HoverLane{get=>hoverLane;set{hoverLane=value is null||visibleIds.Contains(value)?value:null;Changed();Changed(nameof(FocusLane));IntensityChanged();Changed(nameof(HeatmapMode));if(tipDay is {} d)ShowTip(d);}}
+    public string? PinnedLane{get=>pinnedLane;set{pinnedLane=value;Lanes=Lanes.Select(l=>l with{Pinned=l.Id==value}).ToArray();Changed();Changed(nameof(FocusLane));IntensityChanged();Changed(nameof(Lanes));}}
     public string? FocusLane=>hoverLane??pinnedLane;
+    // The same OKLCH samples as the tile renderer; combined intensity is a neutral key.
+    private string Intensity(double level,string neutral)
+    {
+        if(FocusLane is not {} id)return neutral;
+        var (r,g,b)=HeatmapColor.At(id,level);return $"#{r:X2}{g:X2}{b:X2}";
+    }
+    public string IntensityLow=>Intensity(.25,"#20252A");
+    public string IntensityMid=>Intensity(.55,"#4F565F");
+    public string IntensityHigh=>Intensity(.9,"#9EA7B3");
+    private void IntensityChanged(){Changed(nameof(IntensityLow));Changed(nameof(IntensityMid));Changed(nameof(IntensityHigh));}
+    public string HeatmapMode=>FocusLane is {} id?NameOf(id)+" · 单平台 Token":"综合 · 每日总量";
     public void TogglePinnedLane(string id)=>PinnedLane=pinnedLane==id?null:id;
     private DayTip? tip;
     public DayTip? Tip{get=>tip;private set{tip=value;Changed();}}
 
-    public static string NameOf(string id)=>id switch{"codex"=>"Codex","claude"=>"Claude",_=>"DSH"};
+    public static string NameOf(string id)=>id switch{"codex"=>"Codex","claude"=>"ClaudeCN","antigravity"=>"Antigravity",_=>"DSH"};
     public void SetScale(bool value){relative=value;Changed(nameof(RelativeScale));Changed(nameof(UnifiedScale));}
     public void UpdateHistory(UsageHistory history,DateOnly today){histories[history.ProviderId]=history;Rebuild(today);}
     public void Tick(DateOnly today){if(today!=gridDay)Rebuild(today);}
     public void Rebuild(DateOnly today)
     {
         gridDay=today;
-        Grid=UsageGrid.Build(histories.Values,today);
+        Grid=UsageGrid.Build(histories.Values,today,visible:visibleIds);
         Lanes=Grid.Providers.Select(Summary).ToArray();
         Changed(nameof(Grid));Changed(nameof(Lanes));
     }
@@ -238,36 +269,28 @@ public sealed class MonitorViewModel : Observable
         if(h?.Note is {} note)lines.Add(note);
         if(h?.Error is {} error&&error!=Core.Services.HistoryCoordinator.Disabled)lines.Add(error);
         var total=p.CoveredDays>0?Format.Tokens(p.Tokens):"—";
+        if(p.Id=="antigravity")
+        {
+            if(h?.Error==Core.Services.HistoryCoordinator.Disabled)status="已关闭";
+            else if(p.CoveredDays==0)status=h is null?"读取中":"Unavailable";
+        }
         return new LaneSummary(p.Id,NameOf(p.Id),ProviderViewModel.AccentOf(p.Id),total,status,string.Join("\n",lines),h?.Error is not null&&h.Error!=Core.Services.HistoryCoordinator.Disabled,p.Id==pinnedLane);
     }
-    public void ShowTip(GridDay? day)=>Tip=day is null?null:BuildTip(day);
+    private GridDay? tipDay;
+    public void ShowTip(GridDay? day){tipDay=day;Tip=day is null?null:BuildTip(day);}
     public DayTip BuildTip(GridDay day)
     {
-        var rows=new List<TipRow>();var notes=new List<string>();
-        foreach(var lane in day.Lanes)
-        {
-            var name=NameOf(lane.ProviderId);var history=histories.GetValueOrDefault(lane.ProviderId);
-            string value,detail="";string? flag=null;
-            switch(lane.State)
-            {
-                case LaneState.Missing:
-                    value="无记录";
-                    detail=lane.ProviderId=="claude"&&history?.PendingDays>0&&history.Error is null?"等待回溯":"";
-                    break;
-                case LaneState.Zero:
-                    value="0";detail="无用量";break;
-                default:
-                    value=Format.Tokens(lane.Tokens??0);
-                    var parts=new List<string>();
-                    if(lane.Requests is {} r)parts.Add($"{r:N0} 次");
-                    if(lane.Cost is {} c&&c>0)parts.Add((history?.CostEstimated==true?"≈":"")+Format.Money(c,history?.CostCurrency));
-                    detail=string.Join("  ",parts);
-                    break;
-            }
-            if(lane.State==LaneState.Estimated){flag="推算";notes.Add($"{name} 当日用量由累计计数推算。");}
-            if(lane.State==LaneState.Partial||(lane.Excluded>0&&lane.State!=LaneState.Missing)){flag="不完整";notes.Add($"{name} 有 {Math.Max(1,lane.Excluded)} 条记录无法核验，未计入。");}
-            rows.Add(new TipRow(name,ProviderViewModel.AccentOf(lane.ProviderId),value,detail,flag));
-        }
-        return new DayTip(Format.Day(day.Date)+(day.IsToday?"  今天":""),rows,notes.Count>0?string.Join("\n",notes):null);
+        // Reliability remains in GridLane/UsageHistory; the day panel contains data only.
+        var shown=day.Lanes.Where(l=>visibleIds.Contains(l.ProviderId)).ToArray();
+        var rows=shown.Select(l=>new TipRow(NameOf(l.ProviderId),ProviderViewModel.AccentOf(l.ProviderId),
+            l.Tokens is {} n?n.ToString("N0",CultureInfo.InvariantCulture):"—","",null)).ToArray();
+        var total=GridDayTotal(shown);
+        return new DayTip(Format.Day(day.Date)+(day.IsToday?"  今天":""),rows,
+            total is {} t?$"合计 {t:N0} Token":"合计 —");
+    }
+    private static long? GridDayTotal(IEnumerable<GridLane> lanes)
+    {
+        var known=lanes.Where(l=>l.Tokens is not null).ToArray();if(known.Length==0)return null;
+        try{return known.Aggregate(0L,(sum,l)=>checked(sum+l.Tokens!.Value));}catch(OverflowException){return null;}
     }
 }

@@ -61,7 +61,7 @@ public sealed class DshBalanceReceiver : IDshBalanceSource, IAsyncDisposable
     {
         if(frame.Length>16384)throw new InvalidDataException("Bridge frame exceeded limit");
         using var doc=JsonDocument.Parse(frame.ToArray());var e=doc.RootElement;
-        if(e.ValueKind!=JsonValueKind.Object||!e.TryGetProperty("protocol",out var protocol)||protocol.GetInt32()!=1||e.GetProperty("sourceVersion").GetString()!="0.2.0-rc.2")throw new InvalidDataException("Unsupported bridge");
+        if(e.ValueKind!=JsonValueKind.Object||!e.TryGetProperty("protocol",out var protocol)||protocol.GetInt32()!=1||e.GetProperty("sourceVersion").GetString() is not ("0.2.0-rc.2" or "0.2.1-rc.1" or "0.2.1-rc.2"))throw new InvalidDataException("Unsupported bridge");
         var allowed=new HashSet<string>{"protocol","sourceVersion","state","observedAt","normal_wallets","bonus_wallets","queryStatus"};
         if(e.EnumerateObject().Any(p=>!allowed.Contains(p.Name)))throw new InvalidDataException("Unexpected bridge field");
         if(e.TryGetProperty("queryStatus",out var query)&&query.GetString() is not("ready" or "loading" or "failed" or "signed-out" or "unavailable"))throw new InvalidDataException("Invalid query status");
@@ -70,7 +70,7 @@ public sealed class DshBalanceReceiver : IDshBalanceSource, IAsyncDisposable
         if(state is "failed" or "loading" or "unavailable")return previous with{State=previous.Balance is null?DshBalanceState.Unavailable:DshBalanceState.Stale,Error="官方余额暂不可用；等待官方客户端成功更新。"};
         if(state is not("ready" or "stale")||!DateTimeOffset.TryParse(e.GetProperty("observedAt").GetString(),out var at)||at>now+TimeSpan.FromSeconds(5))throw new InvalidDataException("Invalid balance timestamp");
         if(previous.Balance is {} last&&at<last.ObservedAt)throw new InvalidDataException("Out-of-order snapshot");
-        var balance=new DshBalance(ReadWallets(e.GetProperty("normal_wallets")),ReadWallets(e.GetProperty("bonus_wallets")),at,"0.2.0-rc.2");
+        var balance=new DshBalance(ReadWallets(e.GetProperty("normal_wallets")),ReadWallets(e.GetProperty("bonus_wallets")),at,e.GetProperty("sourceVersion").GetString()!);
         return new(balance,state=="stale"||now-at>DshBalanceReading.Freshness?DshBalanceState.Stale:DshBalanceState.Ready,state=="stale"?"DSH Host 余额查询暂不可用；保留最近有效余额。":null);
     }
     private static IReadOnlyList<WalletBalance> ReadWallets(JsonElement e)

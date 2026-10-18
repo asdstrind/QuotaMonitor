@@ -1,6 +1,6 @@
 namespace QuotaMonitor.Core.Models;
 
-public enum ConnectionStatus { Loading, Ready, Partial, Unavailable, Disabled }
+public enum ConnectionStatus { Loading, Ready, Partial, Unavailable, Disabled, Stale }
 public enum MetricType { Quota, Balance, Tokens }
 public sealed record QuotaWindow(string Bucket, string Name, double UsedPercent, long? DurationMinutes, DateTimeOffset? ResetAt)
 {

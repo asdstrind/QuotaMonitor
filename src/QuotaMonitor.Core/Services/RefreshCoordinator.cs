@@ -19,7 +19,7 @@ public sealed class RefreshCoordinator : IAsyncDisposable
     public event Action<ProviderSnapshot>? Updated;
     public RefreshCoordinator(MonitorSettings settings,IEnumerable<IProviderAdapter> adapters,IEnumerable<ProviderSnapshot>? cached=null)
     {
-        this.settings=settings;slots=adapters.Select(a=>new Slot(a,cached?.FirstOrDefault(x=>x.ProviderId==a.Id)??ProviderSnapshot.Empty(a.Id,a.Id switch{"codex"=>"Codex","claude"=>"Claude",_=>"DSH"},a.Id=="codex"?MetricType.Quota:a.Id=="claude"?MetricType.Balance:MetricType.Tokens))).ToArray();
+        this.settings=settings;slots=adapters.Select(a=>new Slot(a,cached?.FirstOrDefault(x=>x.ProviderId==a.Id)??ProviderSnapshot.Empty(a.Id,a.Id switch{"codex"=>"Codex","claude"=>"ClaudeCN","antigravity"=>"Antigravity",_=>"DSH"},a.Id is "codex" or "antigravity"?MetricType.Quota:a.Id=="claude"?MetricType.Balance:MetricType.Tokens))).ToArray();
     }
     public void Start(){loop=RunAsync();}
     private async Task RunAsync(){try{await RefreshAsync(false);using var timer=new PeriodicTimer(TimeSpan.FromSeconds(5));while(await timer.WaitForNextTickAsync(stop.Token))await RefreshAsync(false);}catch(OperationCanceledException)when(stop.IsCancellationRequested){}}

@@ -43,6 +43,15 @@ if(args.Contains("--dsh-sessions")){
     }
     return;
 }
+if(args.Contains("--antigravity-history")){
+    // Only daily aggregates; no account reads, quota requests, conversation IDs or bodies.
+    var today=DateOnly.FromDateTime(DateTime.Now);
+    var result=await new QuotaMonitor.Core.Services.AntigravityHistorySource().ReadHistoryAsync(null,new(today,UsageGrid.WindowStart(today,UsageGrid.DefaultWeeks),true),CancellationToken.None);
+    var output=Path.GetFullPath(args.SkipWhile(x=>x!="--output").Skip(1).FirstOrDefault()??"evidence/ui-v1.6.2/local-history.json");
+    Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+    await File.WriteAllTextAsync(output,JsonSerializer.Serialize(result,new JsonSerializerOptions{WriteIndented=true}));
+    Console.WriteLine($"Antigravity: {result.Days.Count} days; {result.Days.Sum(d=>d.Tokens??0):N0} confirmed tokens; {result.Error??"Complete local history"}");return;
+}
 if(args.Contains("--history")){
     // Local daily token history only (Codex rollouts, DSH sessions). Aggregates; no message bodies.
     var today=DateOnly.FromDateTime(DateTime.Now);var start=UsageGrid.WindowStart(today,UsageGrid.DefaultWeeks);var request=new HistoryRequest(today,start,true);

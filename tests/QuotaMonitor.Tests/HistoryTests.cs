@@ -320,11 +320,11 @@ public sealed class HistoryTests
         vm.UpdateHistory(History("dsh", D(7, 36_000, UsageQuality.Partial, 2)), Today);
         var tip = vm.BuildTip(vm.Grid!.Days.Single(d => d.Date == new DateOnly(2026, 10, 7)));
         Assert.Equal("10月7日 星期三", tip.Title);
-        Assert.Equal(["250万", "0", "3.6万"], tip.Rows.Select(r => r.Value));
-        Assert.Equal(["推算", null, "不完整"], tip.Rows.Select(r => r.Flag));
-        Assert.Contains("2 条记录无法核验", tip.Note);
+        Assert.Equal(["2,500,000", "0", "36,000", "—"], tip.Rows.Select(r => r.Value));
+        Assert.All(tip.Rows,r=>{Assert.Null(r.Flag);Assert.Empty(r.Detail);});
+        Assert.Equal("合计 2,536,000 Token", tip.Note);
         var missing = vm.BuildTip(vm.Grid.Days.Single(d => d.Date == new DateOnly(2026, 10, 1)));
-        Assert.All(missing.Rows, r => Assert.Equal("无记录", r.Value));
+        Assert.All(missing.Rows, r => Assert.Equal("—", r.Value));
     }
     [Fact] public void LaneSummariesReportBackfillAndPinnedFocus()
     {

@@ -16,7 +16,17 @@ using QuotaMonitor.ViewModels;
 namespace QuotaMonitor.Views;
 public partial class IslandWindow : Window
 {
-    public const double MinimalWidth=176, MinimalHeight=8, AlertHeight=26, CollapsedWidth=520, ExpandedWidth=720, CollapsedHeight=82;
+    public const double MinimalWidth=176, MinimalHeight=8, AlertHeight=26, CollapsedWidth=520, ExpandedWidth=880, CollapsedHeight=82;
+    private double DetailWidth=>Vm.VisibleProviders.Count==0?420:Vm.VisibleProviders.Count>=4?ExpandedWidth:720;
+    private double CompactWidth
+    {
+        get
+        {
+            if(Vm.NoVisibleProviders)return 260;
+            CompactItems.Measure(new Size(double.PositiveInfinity,CollapsedHeight));
+            return Math.Max(260,CompactItems.DesiredSize.Width+60);
+        }
+    }
     private readonly MonitorSettings settings;
     private readonly Action save;
     private readonly IslandInteraction interaction=new();
@@ -25,17 +35,19 @@ public partial class IslandWindow : Window
     private readonly DispatcherTimer fullscreen=new(){Interval=TimeSpan.FromSeconds(2)};
     private readonly MorphMotion widthMotion=new(176),heightMotion=new(8),expansion=new(0),alertMotion=new(0);
     private readonly TranslateTransform compactTransform=new(),detailsTransform=new();
+    private readonly ScaleTransform compactScale=new(1,1);
     private IntPtr handle;
     private bool dragged,dragging,animating,fullscreenHidden,updatingFrame;
     private bool detailsReady;
+    private bool compactUpdatePending;
     private TimeSpan lastRenderingTime;
     private double expandedHeight;
-    private IslandState appliedState=IslandState.Minimal;
     private Point? down;
     private Rect? exitBounds;
     private IslandState exitState;
     internal bool VerificationSuspendsPointer { get; set; }
     internal bool VerificationCapturing { get; set; }
+    internal bool VerificationFixedInput { get; set; }
     internal bool RecordMotion { get; set; }
     internal List<MotionSample> MotionSamples { get; }=[];
     public sealed record MotionSample(double Ms,double FrameMs,double CpuMs,double Width,double Height,double Amount,double Alert,double X,double Y,int Layouts,int NativePositions);
@@ -54,10 +66,18 @@ public partial class IslandWindow : Window
     {
         InitializeComponent();DataContext=vm;this.settings=settings;this.save=save;
         Compact.RenderTransform=compactTransform;Details.RenderTransform=detailsTransform;
+        CompactItems.LayoutTransform=compactScale;
+        CompactItems.SizeChanged+=(_,_)=>
+        {
+            if(!IsLoaded||compactUpdatePending)return;
+            compactUpdatePending=true;
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded,()=>{compactUpdatePending=false;FitCompactItems();if(State==IslandState.Collapsed)ApplyState();});
+        };
         vm.UpdateAlerts(settings);vm.PropertyChanged+=AlertsChanged;
         pointer.Tick+=(_,_)=>PollPointer();fullscreen.Tick+=(_,_)=>UpdateFullscreen();
         SourceInitialized+=(_,_)=>{handle=new WindowInteropHelper(this).Handle;NativeWindow.ToolWindow(handle);NativeWindow.DisableNonClientRendering(handle);HwndSource.FromHwnd(handle)?.AddHook(InputHook);ConfigureHost();ApplyState(false);fullscreen.Start();pointer.Start();};
-        Loaded+=(_,_)=>NativeWindow.ShowWithoutActivating(handle);
+        Loaded+=(_,_)=>{NativeWindow.ShowWithoutActivating(handle);Dispatcher.BeginInvoke(DispatcherPriority.Loaded,PrimeExpandedLayout);};
+        Details.SizeChanged+=(_,_)=>{detailsReady=false;};
 
         SystemEvents.DisplaySettingsChanged+=DisplayChanged;
         DpiChanged+=(_,_)=>Dispatcher.BeginInvoke(RefreshGeometry);
@@ -66,6 +86,7 @@ public partial class IslandWindow : Window
     private double Now=>clock.Elapsed.TotalSeconds;
     private void AlertsChanged(object? sender,PropertyChangedEventArgs e)
     {
+        if(e.PropertyName==nameof(MonitorViewModel.VisibleProviders)&&handle!=IntPtr.Zero){detailsReady=false;ConfigureHost();ApplyState(false);Dispatcher.BeginInvoke(DispatcherPriority.Loaded,()=>{PrimeExpandedLayout();ApplyState(false);});return;}
         if(e.PropertyName!=nameof(MonitorViewModel.MinimalAlerts)||handle==IntPtr.Zero)return;
         AlertStrip.Update(Vm.MinimalAlerts,Now,SystemParameters.ClientAreaAnimation);
         if(State==IslandState.Minimal)ApplyState();else StartFrames();
@@ -106,27 +127,43 @@ public partial class IslandWindow : Window
     }
     internal bool ShellContains(Point point)=>Island.Outline.FillContains(point);
     private void DisplayChanged(object? sender,EventArgs e)=>Dispatcher.BeginInvoke(RefreshGeometry);
-    private void RefreshGeometry(){StopMotion();detailsReady=false;ConfigureHost();ApplyState(false);}
+    private void RefreshGeometry(){StopMotion();detailsReady=false;ConfigureHost();PrimeExpandedLayout();ApplyState(false);}
     private (double Width,double Height) Available(){var work=NativeWindow.WorkArea(handle);var scale=NativeWindow.Scale(handle);return (Math.Max(1,(work.Right-work.Left)/scale-16),Math.Max(1,(work.Bottom-work.Top)/scale-24));}
     private void ConfigureHost()
     {
         var available=Available();Width=Math.Min(ExpandedWidth,available.Width);Height=Math.Min(available.Height,480);
         Island.PrepareShadow(NativeWindow.Scale(handle));
-        Details.Width=Math.Max(1,Width-58);Compact.Width=Math.Min(460,Math.Max(1,Width-60));
+        Details.Width=Math.Max(1,Math.Min(DetailWidth,Width)-58);Compact.Width=Math.Max(1,Width-60);
+        FitCompactItems();
         AlertStrip.Update(Vm.MinimalAlerts,Now,false);PositionFrame();
     }
     public void Reposition(){if(handle==IntPtr.Zero)return;PositionFrame();}
-    private double TargetWidth()=>State switch{IslandState.Minimal=>Vm.MinimalAlerts.Count>0?AlertStrip.CapsuleWidth:MinimalWidth,IslandState.Collapsed=>CollapsedWidth,_=>ExpandedWidth};
+    private void FitCompactItems()
+    {
+        CompactItems.Measure(new Size(double.PositiveInfinity,CollapsedHeight));
+        var natural=CompactItems.DesiredSize.Width/compactScale.ScaleX;
+        var scale=Math.Min(1,Compact.Width/Math.Max(1,natural));
+        if(Math.Abs(scale-compactScale.ScaleX)>.0001)compactScale.ScaleX=compactScale.ScaleY=scale;
+    }
+    private double TargetWidth()=>State switch{IslandState.Minimal=>Vm.MinimalAlerts.Count>0?AlertStrip.CapsuleWidth:MinimalWidth,IslandState.Collapsed=>CompactWidth,_=>DetailWidth};
     private void PositionFrame(){nativePositions++;NativeWindow.Position(handle,Width,Height,settings.TopCenter,settings.Left,settings.Top,0);}
     private double ExpandedHeight()
     {
+        if(Vm.NoVisibleProviders)return 120;
         if(detailsReady)return expandedHeight;
-        Details.LayoutTransform=Transform.Identity;Details.Measure(new Size(Math.Min(ExpandedWidth,Width)-26,double.PositiveInfinity));
+        Details.LayoutTransform=Transform.Identity;Details.Measure(new Size(Math.Min(DetailWidth,Width)-26,double.PositiveInfinity));
         var natural=Details.DesiredSize.Height+26;var max=Available().Height;
         if(natural>max){Details.LayoutTransform=new ScaleTransform(Math.Max(.5,(max-26)/Details.DesiredSize.Height),Math.Max(.5,(max-26)/Details.DesiredSize.Height));natural=max;}
         expandedHeight=natural;detailsReady=true;
         if(Height<natural+8){Height=Math.Min(max,natural+8);PositionFrame();}
         return natural;
+    }
+    private void PrimeExpandedLayout()
+    {
+        // Hidden (not Collapsed) detail content keeps its measured visual tree alive.
+        // Warm the first render before a click, retaining the same fixed native host.
+        if(handle==IntPtr.Zero||!IsLoaded)return;
+        UpdateLayout();_ = ExpandedHeight();
     }
     public void SetState(IslandState state,bool animate=true){exitBounds=null;interaction.Set(state);ApplyState(animate);}
     public void SetExpanded(bool value,bool animate=true)=>SetState(value?IslandState.Expanded:IslandState.Collapsed,animate);
@@ -136,13 +173,13 @@ public partial class IslandWindow : Window
     {
         if(message!=0x84||!IsVisible)return IntPtr.Zero;
         var packed=lParam.ToInt64();var p=PointFromScreen(new Point((short)(packed&0xffff),(short)((packed>>16)&0xffff)));
-        if(!Island.Outline.FillContains(p)){handled=true;return new IntPtr(-1);}return IntPtr.Zero;
+        if(!VerificationFixedInput&&!Island.Outline.FillContains(p)){handled=true;return new IntPtr(-1);}return IntPtr.Zero;
     }
     private void UpdateInputTransparency()
     {
         if(handle==IntPtr.Zero||!IsVisible)return;
         var p=NativeWindow.Cursor();var local=PointFromScreen(new Point(p.X,p.Y));
-        NativeWindow.SetInputTransparent(handle,fullscreenHidden||!Island.Outline.FillContains(local));
+        NativeWindow.SetInputTransparent(handle,!VerificationFixedInput&&(fullscreenHidden||!Island.Outline.FillContains(local)));
     }
     private void PaintShell()
     {
@@ -176,8 +213,8 @@ public partial class IslandWindow : Window
     {
         if(handle==IntPtr.Zero)return;
         HideTip();var minimal=State==IslandState.Minimal;var expanded=IsExpanded;var alert=Vm.MinimalAlerts.Count>0;
-        if(expanded&&appliedState!=IslandState.Expanded)detailsReady=false;appliedState=State;
-        Compact.Visibility=expanded?Visibility.Collapsed:Visibility.Visible;Details.Visibility=expanded?Visibility.Visible:Visibility.Collapsed;
+        Compact.Visibility=expanded?Visibility.Hidden:Visibility.Visible;Details.Visibility=expanded?Visibility.Visible:Visibility.Hidden;
+        Details.IsHitTestVisible=expanded;
         Minimal.Visibility=Visibility.Visible;
         var w=Math.Min(TargetWidth(),Available().Width);var h=minimal?alert?AlertHeight:MinimalHeight:expanded?ExpandedHeight():CollapsedHeight;
         if(!expanded)Vm.HoverLane=null;

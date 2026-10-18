@@ -5,6 +5,16 @@ public sealed class MonitorSettings
     public bool CodexEnabled { get; set; } = true;
     public bool ClaudeEnabled { get; set; } = true;
     public bool DshEnabled { get; set; } = true;
+    public bool AntigravityEnabled { get; set; } = true;
+    // Presentation only: hiding a Harness never clears its connection or history.
+    public bool ShowCodex { get; set; } = true;
+    public bool ShowClaude { get; set; } = true;
+    public bool ShowDsh { get; set; } = true;
+    public bool ShowAntigravity { get; set; } = true;
+    public bool Visible(string id) => id switch { "codex"=>ShowCodex, "claude"=>ShowClaude, "dsh"=>ShowDsh, "antigravity"=>ShowAntigravity, _=>false };
+    public double AntigravityGeminiLowPercent { get; set; } = 15;
+    public double AntigravityClaudeGptLowPercent { get; set; } = 15;
+    public int AntigravityRefreshSeconds { get; set; } = 60;
     public string CodexExecutable { get; set; } = "";
     public string ClaudeUserId { get; set; } = "";
     public decimal QuotaPerUsd { get; set; } = 500000m;
@@ -33,10 +43,10 @@ public sealed class MonitorSettings
     public decimal? DshCacheWritePerMillion { get; set; }
     public decimal? DshOutputPerMillion { get; set; } = 1.20m;
     public string DshPriceCurrency { get; set; } = "USD";
-    public bool Enabled(string id) => id switch { "codex"=>CodexEnabled, "claude"=>ClaudeEnabled, "dsh"=>DshEnabled, _=>false };
+    public bool Enabled(string id) => id switch { "codex"=>CodexEnabled, "claude"=>ClaudeEnabled, "dsh"=>DshEnabled, "antigravity"=>AntigravityEnabled, _=>false };
     public bool DshEstimateEnabled { get; set; } = true;
     [System.Text.Json.Serialization.JsonIgnore]
     public string EffectiveDshSessionRoot => string.IsNullOrWhiteSpace(DshSessionRoot)
         ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".dsh", "sessions") : DshSessionRoot;
-    public TimeSpan Interval(string id) => TimeSpan.FromSeconds(Math.Clamp(id switch { "codex"=>CodexRefreshSeconds, "claude"=>ClaudeRefreshSeconds, _=>DshRefreshSeconds }, 30, 3600));
+    public TimeSpan Interval(string id) => TimeSpan.FromSeconds(Math.Clamp(id switch { "codex"=>CodexRefreshSeconds, "claude"=>ClaudeRefreshSeconds, "antigravity"=>AntigravityRefreshSeconds, _=>DshRefreshSeconds }, 30, 3600));
 }

@@ -9,6 +9,22 @@ using QuotaMonitor.Core.Services;
 namespace QuotaMonitor.Tests;
 public class DshBalanceTests
 {
+    [Theory]
+    [InlineData("0.2.0-rc.2")]
+    [InlineData("0.2.1-rc.1")]
+    [InlineData("0.2.1-rc.2")]
+    public void TestedHostVersionsPreserveWalletsAndSource(string version)
+    {
+        var frame=Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(Frame()).Replace("0.2.0-rc.2",version));
+        var reading=DshBalanceReceiver.Parse(frame,DshBalanceReading.Empty,Now);
+        Assert.Equal(DshBalanceState.Ready,reading.State);Assert.Equal(version,reading.Balance!.SourceVersion);
+        Assert.Equal("123.123456789012345678901234567890123456",reading.Balance.NormalWallets[0].Balance);
+    }
+    [Fact] public void UntestedHostVersionIsRejected()
+    {
+        var frame=Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(Frame()).Replace("0.2.0-rc.2","0.3.0"));
+        Assert.Throws<InvalidDataException>(()=>DshBalanceReceiver.Parse(frame,DshBalanceReading.Empty,Now));
+    }
     private static readonly DateTimeOffset Now=DateTimeOffset.Parse("2026-10-10T10:00:00Z");
     private static byte[] Frame(string state="ready",DateTimeOffset? at=null)=>JsonSerializer.SerializeToUtf8Bytes(new{protocol=1,sourceVersion="0.2.0-rc.2",state,observedAt=(at??Now).ToString("O"),normal_wallets=new[]{new{currency="CNY",balance="123.123456789012345678901234567890123456"},new{currency="USD",balance="1.0000000000"}},bonus_wallets=new[]{new{currency="CNY",balance="0.0000000001"}}});
     [Fact] public void StoreImportCopiesOnlyThisAppsFilesFromItsOwnFoldersOnce()

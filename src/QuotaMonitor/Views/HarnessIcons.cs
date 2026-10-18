@@ -4,6 +4,13 @@ using System.Windows.Media;
 
 namespace QuotaMonitor.Views;
 
+public sealed class HarnessMark : FrameworkElement
+{
+    public static readonly DependencyProperty ProviderProperty=DependencyProperty.Register(nameof(Provider),typeof(string),typeof(HarnessMark),new FrameworkPropertyMetadata("antigravity",FrameworkPropertyMetadataOptions.AffectsRender));
+    public string Provider { get=>(string)GetValue(ProviderProperty);set=>SetValue(ProviderProperty,value); }
+    protected override void OnRender(DrawingContext dc)=>HarnessIcons.Draw(dc,Provider,new Rect(RenderSize));
+}
+
 // Original path coordinates from official OpenAI, Claude and DeepSeek resources.
 // Embedded vectors: no runtime requests, raster scaling, or approximate redraws.
 internal static class HarnessIcons
@@ -12,7 +19,7 @@ internal static class HarnessIcons
     private static Dictionary<string,(Geometry,Brush)> Load()
     {
         var result=new Dictionary<string,(Geometry,Brush)>();XNamespace ns="http://www.w3.org/2000/svg";
-        foreach(var (id,file) in new[]{("codex","codex.svg"),("claude","claude.svg"),("dsh","deepseek.svg")})
+        foreach(var (id,file) in new[]{("codex","codex.svg"),("claude","claude.svg"),("dsh","deepseek.svg"),("antigravity","antigravity.svg")})
         {
             using var stream=Application.GetResourceStream(new Uri("pack://application:,,,/Assets/Harness/"+file)).Stream;
             var document=XDocument.Load(stream);

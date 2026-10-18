@@ -22,7 +22,7 @@ dotnet publish src/QuotaMonitor/QuotaMonitor.csproj -c Release -r win-x64 --self
 
 ## Bridge 依赖
 
-插件 peerDependencies 为 `@deepseek-ai/cordis ~4.0.4`、`@deepseek-ai/dsh-typert-protocol 0.2.0-rc.2`，由兼容 DSH 宿主提供；没有编译或 npm 安装脚本。单元测试只用 Node 内置模块。
+Bridge 1.2.0 的 peerDependencies 为 `@deepseek-ai/cordis ~4.0.4`，以及 `dsh-typert-protocol`、`dsh-credentials`、`dsh-app-boot` 的 `0.2.0-rc.2 || 0.2.1-rc.1 || 0.2.1-rc.2`，由兼容 DSH 宿主提供；没有编译或 npm 安装脚本。单元测试只用 Node 内置模块。
 
 `tools/test-dsh-cordis.mjs` 是额外的宿主集成测试，需要兼容官方运行时的 `node_modules`，其中还须有 `dsh-typert-registry`、`dsh-api-gateway`、`dsh-app-boot`。设置 `DSH_TEST_RUNTIME` 为该目录，再执行 `node tools/test-dsh-cordis.mjs`。它使用合成钱包和随机测试 Pipe，不加载账户或 Profile；这些宿主包不随本仓库复制分发。`tools/test-dsh-official-outcomes.mjs` 另需同版本 dsh-deepseek-account-platform，使用替换 fetch 和合成 grant 验证官方 HTTP 202、网络异常、超时及换号结果；不构造生产账号服务或读取凭据。这些测试不保证未来宿主版本兼容。
 
@@ -40,7 +40,7 @@ dotnet publish src/QuotaMonitor/QuotaMonitor.csproj -c Release -r win-x64 --self
 ./tools/package-release.ps1
 ```
 
-这个本地脚本生成 v1.5.3 Windows x64 自包含 ZIP、SHA-256 文件，以及 Bridge 1.1.0 源码和完整许可证目录。不提交或上传任何内容。它关闭调试符号，并将编译路径映射到中性路径；已有输出时拒绝覆盖。第三方 Logo 的独立授权风险仍见 [TRADEMARKS.md](TRADEMARKS.md)。
+这个本地脚本生成 csproj 定义版本（当前 v1.6.4）的 Windows x64 自包含 ZIP、SHA-256 文件，以及 Bridge 1.2.0 源码和完整许可证目录。只附公开配置、历史边界和运行说明，不附内部验收报告、截图或审计材料。不提交或上传任何内容。它关闭调试符号，并将编译路径映射到中性路径；已有输出时拒绝覆盖。第三方 Logo 的独立授权风险仍见 [TRADEMARKS.md](TRADEMARKS.md)。
 
 `NuGet.Config` 只使用公开 nuget.org 源，不依赖本机私有包源。如果出现 NU1900，请先恢复漏洞源网络连接。只为了检查编译时，可以临时加 `-p:NuGetAudit=false`；这不代表在线漏洞审计通过，也不应修改仓库默认 NuGetAudit=true。
 

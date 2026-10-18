@@ -22,31 +22,46 @@ public partial class SettingsWindow : Window
     private readonly Func<string?>? currentModel;
     private readonly CancellationTokenSource stop=new();
     private bool removeToken;
+    private bool displayReady;
     private string page="General", provider="Claude";
     public SettingsWindow(MonitorSettings settings,SettingsStore store,CredentialStore secrets,HttpClient http,Action saved,Func<string?>? currentModel=null,bool startupAllowed=true)
     {
         InitializeComponent();original=settings;this.store=store;this.secrets=secrets;this.http=http;this.saved=saved;this.currentModel=currentModel;this.startupAllowed=startupAllowed;
         FiveHourThreshold.Text=Format(settings.CodexFiveHourLowPercent);WeeklyThreshold.Text=Format(settings.CodexWeeklyLowPercent);ClaudeThreshold.Text=Format(settings.ClaudeLowBalanceUsd);DshThreshold.Text=Format(settings.DshLowBalance);SelectCurrency(DshAlertCurrencyBox,settings.DshAlertCurrency);
+        ShowCodexCheck.IsChecked=settings.ShowCodex;ShowClaudeCheck.IsChecked=settings.ShowClaude;ShowDshCheck.IsChecked=settings.ShowDsh;ShowAntigravityCheck.IsChecked=settings.ShowAntigravity;
+        AntigravityOn.IsChecked=settings.AntigravityEnabled;AntigravityGeminiThreshold.Text=Format(settings.AntigravityGeminiLowPercent);AntigravityClaudeGptThreshold.Text=Format(settings.AntigravityClaudeGptLowPercent);AntigravityInterval.Text=Format(settings.AntigravityRefreshSeconds);
         CodexOn.IsChecked=settings.CodexEnabled;ClaudeOn.IsChecked=settings.ClaudeEnabled;DshOn.IsChecked=settings.DshEnabled;CenterOn.IsChecked=settings.TopCenter;FullscreenOn.IsChecked=settings.HideInFullscreen;StartupOn.IsChecked=startupAllowed?StartupService.IsEnabled():settings.AutoStart;
         CodexInterval.Text=Format(settings.CodexRefreshSeconds);ClaudeInterval.Text=Format(settings.ClaudeRefreshSeconds);DshInterval.Text=Format(settings.DshRefreshSeconds);UserIdBox.Text=settings.ClaudeUserId;RatioBox.Text=Format(settings.QuotaPerUsd);CodexPathBox.Text=settings.CodexExecutable;DshPathBox.Text=settings.DshSessionRoot;
         EstimateOn.IsChecked=settings.DshEstimateEnabled;PriceModel.Text=settings.DshPricedModel;PriceBasis.Text=settings.DshPriceBasis;PriceInput.Text=Format(settings.DshInputPerMillion);PriceRead.Text=Format(settings.DshCacheReadPerMillion);PriceWrite.Text=Format(settings.DshCacheWritePerMillion);PriceOutput.Text=Format(settings.DshOutputPerMillion);SelectCurrency(PriceCurrency,settings.DshPriceCurrency);
         UpdateCredentialLabel();GeneralNav.IsChecked=true;ClaudeTab.IsChecked=true;
+        displayReady=true;ApplyDisplayFilter();
         Loaded+=(_,_)=>{var screen=System.Windows.Forms.Screen.FromHandle(new System.Windows.Interop.WindowInteropHelper(this).Handle);var dpi=System.Windows.Media.VisualTreeHelper.GetDpi(this);MaxHeight=Math.Max(360,screen.WorkingArea.Height/dpi.DpiScaleY-24);Height=Math.Min(Height,MaxHeight);MaxWidth=Math.Max(620,screen.WorkingArea.Width/dpi.DpiScaleX-24);Width=Math.Min(Width,MaxWidth);Left=Math.Clamp(Left,screen.WorkingArea.Left/dpi.DpiScaleX,(screen.WorkingArea.Right/dpi.DpiScaleX)-Width);Top=Math.Clamp(Top,screen.WorkingArea.Top/dpi.DpiScaleY,(screen.WorkingArea.Bottom/dpi.DpiScaleY)-Height);};
         Closed+=(_,_)=>{stop.Cancel();TokenBox.Clear();};
     }
     private static string Format(object? value)=>Convert.ToString(value,CultureInfo.InvariantCulture)??"";
+    private void DisplaySelectionChanged(object sender,RoutedEventArgs e){if(displayReady)ApplyDisplayFilter();}
+    private void ApplyDisplayFilter()
+    {
+        var tabs=new[]{(CodexTab,ShowCodexCheck,CodexPanel),(ClaudeTab,ShowClaudeCheck,ClaudePanel),(DshTab,ShowDshCheck,DshPanel),(AntigravityTab,ShowAntigravityCheck,AntigravityPanel)};
+        foreach(var (_,check,panel) in tabs)if(check.IsChecked!=true)panel.Visibility=Visibility.Collapsed;
+        var visible=tabs.Where(t=>t.Item2.IsChecked==true).ToArray();
+        ProviderSelectionEmpty.Visibility=visible.Length==0?Visibility.Visible:Visibility.Collapsed;
+        if(visible.Length==0){foreach(var (tab,_,_) in tabs)tab.IsChecked=false;return;}
+        if(!visible.Any(t=>t.Item1.IsChecked==true))visible[0].Item1.IsChecked=true;
+    }
     private static void SelectCurrency(ComboBox box,string text){box.SelectedItem=box.Items.Cast<ComboBoxItem>().FirstOrDefault(i=>string.Equals(i.Content?.ToString(),text,StringComparison.OrdinalIgnoreCase));}
     private static string Currency(ComboBox box)=>(box.SelectedItem as ComboBoxItem)?.Content?.ToString()??throw new ArgumentException("请选择 CNY 或 USD 币种。");
     private void Navigate(object sender,RoutedEventArgs e)
     {
         if(PageHost is null)return;
         page=(string)((RadioButton)sender).Tag;GeneralPage.Visibility=page=="General"?Visibility.Visible:Visibility.Collapsed;ProvidersPage.Visibility=page=="Providers"?Visibility.Visible:Visibility.Collapsed;AlertsPage.Visibility=page=="Alerts"?Visibility.Visible:Visibility.Collapsed;AdvancedPage.Visibility=page=="Advanced"?Visibility.Visible:Visibility.Collapsed;
-        (PageTitle.Text,PageSubtitle.Text)=page switch{"General"=>("保持可见，恰到好处。","桌面行为与日常偏好"),"Providers"=>("三个平台，一处可见。","管理连接与监控开关"),"Alerts"=>("在需要时，轻轻提醒。","为 Alert Minimal 设置低额度阈值"),_=>("更多控制，更少打扰。","常用配置之外的可选覆盖")};
+        (PageTitle.Text,PageSubtitle.Text)=page switch{"General"=>("保持可见，恰到好处。","桌面行为与 Harness 显示选择"),"Providers"=>("四个平台，一处可见。","管理连接与读取开关"),"Alerts"=>("在需要时，轻轻提醒。","为 Alert Minimal 设置低额度阈值"),_=>("更多控制，更少打扰。","常用配置之外的可选覆盖")};
         PageScroll.ScrollToTop();AnimatePage();
     }
     private void ProviderNavigate(object sender,RoutedEventArgs e)
     {
         if(DshPanel is null)return;provider=(string)((RadioButton)sender).Tag;CodexPanel.Visibility=provider=="Codex"?Visibility.Visible:Visibility.Collapsed;ClaudePanel.Visibility=provider=="Claude"?Visibility.Visible:Visibility.Collapsed;DshPanel.Visibility=provider=="Dsh"?Visibility.Visible:Visibility.Collapsed;
+        AntigravityPanel.Visibility=provider=="Antigravity"?Visibility.Visible:Visibility.Collapsed;
         var model=currentModel?.Invoke();DshModelLabel.Text=string.IsNullOrWhiteSpace(model)?"等待首个可验证 Session · 自动识别，无需填写":model+" · 来自最近的 Session";PageScroll.ScrollToTop();AnimatePage();
     }
     private void AnimatePage(){if(SystemParameters.ClientAreaAnimation)PageHost.BeginAnimation(OpacityProperty,new DoubleAnimation(0.7,1,TimeSpan.FromMilliseconds(140)));}
@@ -70,7 +85,7 @@ public partial class SettingsWindow : Window
     private void UpdateCredentialLabel(){try{CredentialLabel.Text=removeToken?"将在保存时移除；输入新 Token 可替换":secrets.Read() is null?"未保存 Token · 输入新 Token":"已安全保存 · 留空保留现有 Token";}catch{CredentialLabel.Text="凭据管理器暂不可用";}}
     private T Field<T>(Control control,Func<T> read)
     {
-        try{return read();}catch(ArgumentException){if(control==FiveHourThreshold||control==WeeklyThreshold||control==ClaudeThreshold||control==DshThreshold)AlertsNav.IsChecked=true;else if(control==UserIdBox){ProvidersNav.IsChecked=true;ClaudeTab.IsChecked=true;}else{AdvancedNav.IsChecked=true;if(control==CodexInterval||control==ClaudeInterval||control==DshInterval)RefreshExpander.IsExpanded=true;else if(control==CodexPathBox)PathsExpander.IsExpanded=true;else if(control==RatioBox)RatioExpander.IsExpanded=true;else PriceExpander.IsExpanded=true;}control.BringIntoView();control.Focus();throw;}
+        try{return read();}catch(ArgumentException){if(control==FiveHourThreshold||control==WeeklyThreshold||control==ClaudeThreshold||control==DshThreshold||control==AntigravityGeminiThreshold||control==AntigravityClaudeGptThreshold)AlertsNav.IsChecked=true;else if(control==UserIdBox){ProvidersNav.IsChecked=true;ClaudeTab.IsChecked=true;}else{AdvancedNav.IsChecked=true;if(control==CodexInterval||control==ClaudeInterval||control==DshInterval||control==AntigravityInterval)RefreshExpander.IsExpanded=true;else if(control==CodexPathBox)PathsExpander.IsExpanded=true;else if(control==RatioBox)RatioExpander.IsExpanded=true;else PriceExpander.IsExpanded=true;}control.BringIntoView();control.Focus();throw;}
     }
     private void ReadClaude(MonitorSettings draft)
     {
@@ -80,6 +95,8 @@ public partial class SettingsWindow : Window
     private MonitorSettings ReadForm()
     {
         var draft=JsonSerializer.Deserialize<MonitorSettings>(JsonSerializer.Serialize(original))!;
+        draft.ShowCodex=ShowCodexCheck.IsChecked==true;draft.ShowClaude=ShowClaudeCheck.IsChecked==true;draft.ShowDsh=ShowDshCheck.IsChecked==true;draft.ShowAntigravity=ShowAntigravityCheck.IsChecked==true;
+        draft.AntigravityEnabled=AntigravityOn.IsChecked==true;draft.AntigravityGeminiLowPercent=Field(AntigravityGeminiThreshold,()=>Percent(AntigravityGeminiThreshold.Text));draft.AntigravityClaudeGptLowPercent=Field(AntigravityClaudeGptThreshold,()=>Percent(AntigravityClaudeGptThreshold.Text));draft.AntigravityRefreshSeconds=Field(AntigravityInterval,()=>Interval(AntigravityInterval.Text));
         draft.CodexFiveHourLowPercent=Field(FiveHourThreshold,()=>Percent(FiveHourThreshold.Text));draft.CodexWeeklyLowPercent=Field(WeeklyThreshold,()=>Percent(WeeklyThreshold.Text));draft.ClaudeLowBalanceUsd=Field(ClaudeThreshold,()=>Threshold(ClaudeThreshold.Text));draft.DshLowBalance=Field(DshThreshold,()=>Threshold(DshThreshold.Text));draft.DshAlertCurrency=Currency(DshAlertCurrencyBox);
         draft.CodexEnabled=CodexOn.IsChecked==true;draft.ClaudeEnabled=ClaudeOn.IsChecked==true;draft.DshEnabled=DshOn.IsChecked==true;draft.TopCenter=CenterOn.IsChecked==true;draft.HideInFullscreen=FullscreenOn.IsChecked==true;draft.AutoStart=StartupOn.IsChecked==true;
         draft.CodexRefreshSeconds=Field(CodexInterval,()=>Interval(CodexInterval.Text));draft.ClaudeRefreshSeconds=Field(ClaudeInterval,()=>Interval(ClaudeInterval.Text));draft.DshRefreshSeconds=Field(DshInterval,()=>Interval(DshInterval.Text));ReadClaude(draft);
