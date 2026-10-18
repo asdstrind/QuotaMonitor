@@ -36,19 +36,19 @@ public static class Showcase
     }
     static async Task Generate(string root,string output)
     {
-        var vm=new MonitorViewModel();var now=DateTimeOffset.UtcNow;var today=new DateOnly(2026,10,14);
+        var vm=new MonitorViewModel();var now=DateTimeOffset.UtcNow;var today=DateOnly.FromDateTime(DateTime.Now);
         var settings=new MonitorSettings{TopCenter=false,Left=50,Top=50,HideInFullscreen=false,AutoStart=false,ClaudeUserId="",CodexExecutable="codex",DshSessionRoot=""};
         foreach(var id in UsageGrid.Order){
-            vm.Providers.Add(new(new ProviderSnapshot{ProviderId=id,DisplayName=id=="codex"?"Codex":id=="claude"?"ClaudeCN":"DSH",ConnectionStatus=ConnectionStatus.Ready,
+            vm.Providers.Add(new(new ProviderSnapshot{ProviderId=id,DisplayName=MonitorViewModel.NameOf(id),ConnectionStatus=ConnectionStatus.Ready,
                 LastUpdated=now,UsageUpdated=now,RemainingPercent=72,RemainingBalance=18.50m,Currency="USD",TodayTokens=284000,TotalTokens=8600000,TodayRequests=42,TodayCost=.42m,TotalCost=12.80m,
-                InputTokens=240000,OutputTokens=44000,CurrentModel="deepseek-v4",DataSource="Synthetic showcase",
-                Windows=id=="codex"?[new("codex","Primary",28,300,now.AddHours(2)),new("codex","Weekly",38,10080,now.AddDays(3))]:[],
+                InputTokens=240000,OutputTokens=44000,CurrentModel="synthetic-model",DataSource="Synthetic showcase",
+                Windows=id=="codex"?[new("codex","Primary",28,300,now.AddHours(2)),new("codex","Weekly",38,10080,now.AddDays(3))]:id=="antigravity"?[new("gemini-weekly","Gemini",32,10080,now.AddDays(4)),new("3p-weekly","Claude/GPT",54,10080,now.AddDays(5))]:[],
                 AccountBalance=id=="dsh"?new(new([new("CNY","42.80")],[new("CNY","5.00")],now,"synthetic showcase"),DshBalanceState.Ready,null):null}));
             var lane=UsageGrid.Order.ToList().IndexOf(id);
             vm.UpdateHistory(new(){ProviderId=id,Source="Synthetic showcase",Scope="Invented daily aggregates",CostCurrency=id=="dsh"?"CNY":"USD",CoverageStart=today.AddDays(-180),
                 Days=Enumerable.Range(0,181).Select(i=>new UsageDay(today.AddDays(i-180),i%11==0?0:(long)(800*Math.Pow(1.034,i%120)*(1+(i*7+lane*13)%17)),(i*3+lane)%50,.03m*(i%9),UsageQuality.Exact,now)).ToArray()},today);
         }
-        vm.Rebuild(today);vm.SettingsCommand=vm.RefreshCommand=vm.ExitCommand=new ActionCommand(()=>{});
+        vm.Rebuild(today);vm.ApplyVisibility(settings,today);vm.SettingsCommand=vm.RefreshCommand=vm.ExitCommand=new ActionCommand(()=>{});
         var window=new IslandWindow(vm,settings,()=>{});
         typeof(IslandWindow).GetProperty("VerificationSuspendsPointer",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(window,true);
         window.Show();await Task.Delay(350);
@@ -66,6 +66,7 @@ public static class Showcase
         vm.Codex.Update(vm.Codex.Snapshot with{RemainingPercent=12,Windows=[new("codex","Primary",88,300,now.AddHours(2)),new("codex","Weekly",92,10080,now.AddDays(3))]});
         vm.Claude.Update(vm.Claude.Snapshot with{RemainingBalance=.52m});
         vm.Dsh.Update(vm.Dsh.Snapshot with{AccountBalance=new(new([new("CNY","0.80")],[],now,"synthetic showcase"),DshBalanceState.Ready,null)});
+        vm.Antigravity.Update(vm.Antigravity.Snapshot with{Windows=[new("gemini-weekly","Gemini",89,10080,now.AddDays(4)),new("3p-weekly","Claude/GPT",93,10080,now.AddDays(5))]});
         vm.UpdateAlerts(settings,now);window.SetState(IslandState.Minimal,false);await Task.Delay(180);Capture(window,Path.Combine(output,"alerts.png"));window.Close();
         using var http=new HttpClient(new OfflineHandler());
         var store=new SettingsStore(Path.Combine(output,"empty-store"));

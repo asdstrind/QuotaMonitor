@@ -6,9 +6,9 @@
 <p align="center"><a href="https://github.com/asdstrind/QuotaMonitor/releases/latest"><strong>下载 Windows 版 ↗</strong></a><br><sub>Windows 11 x64 · 自带运行时，解压即可运行。</sub></p>
 
 <p align="center"><img src="docs/media/overview.png" width="1000" alt="QuotaMonitor expanded view and heatmap — synthetic demo data"></p>
-<p align="center">Codex 配额 · ClaudeCN 与 DeepSeek Harness 余额和用量<br>历史热力图 · 余额预警 · 平滑动画</p>
+<p align="center">Codex 配额 · ClaudeCN 与 DeepSeek Harness 余额和用量 · Antigravity 每周限额<br>历史热力图 · 平台显示筛选 · 余额预警 · 平滑动画</p>
 
-<p align="center">v1.6.4 · Antigravity Gemini 与 Claude/GPT 两项每周限额 · 平台显示筛选<br><sub>展示图为 v1.5.3 合成数据演示。</sub></p>
+<p align="center"><sub>v1.6.4 · 合成数据演示</sub></p>
 
 <p align="center"><img src="docs/media/island.gif" width="1000" alt="Minimal to Collapsed to Expanded animation — synthetic demo data"></p>
 <p align="center"><img src="docs/media/details.png" width="1000" alt="Low-balance alerts and Settings — synthetic demo data"></p>

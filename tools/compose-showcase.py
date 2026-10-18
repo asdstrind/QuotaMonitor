@@ -28,17 +28,18 @@ def paste(im,shot,width,xy,crop=True):
     im.paste(shot,xy,shot);return shot.size
 hero=backdrop(1440,990);text(hero,(64,42),'QUOTAMONITOR / WINDOWS',17,'#83bfae',True);stamp(hero)
 text(hero,(64,103),'Your AI usage, at a glance.',47,'#eef8f4',True)
-text(hero,(67,171),'Codex quota  /  ClaudeCN & DSH balance  /  Daily heatmaps',21,'#a0b6b4')
+text(hero,(67,171),'Codex  /  ClaudeCN  /  DeepSeek Harness  /  Antigravity',21,'#a0b6b4')
 paste(hero,Image.open(source/'expanded.png'),1190,(125,219))
-text(hero,(66,942),'A little island. Three platforms.',23,'#deece8',True);text(hero,(1008,947),'v1.5.3  +  Bridge 1.1.0',18,'#91a6aa')
+text(hero,(66,942),'A little island. Four platforms.',23,'#deece8',True);text(hero,(1008,947),'v1.6.4  +  Bridge 1.2.0',18,'#91a6aa')
 hero.save(out/'overview.png')
 details=backdrop(1440,840);stamp(details);text(details,(60,40),'SMALL DETAILS, LESS DISTRACTION',18,'#83bfae',True)
 text(details,(60,109),'A quiet nudge.',38,'#eef8f4',True);text(details,(62,169),'Low quota & balance alerts',21)
 paste(details,Image.open(source/'alerts.png'),490,(62,241))
-text(details,(60,466),'Make it yours.',38,'#eef8f4',True);text(details,(62,529),'Docking, fullscreen & refresh settings',21)
+text(details,(60,466),'Make it yours.',38,'#eef8f4',True);text(details,(62,529),'Harness filters, docking & settings',21)
 text(details,(62,700),'Original app views. Invented account data.',18,'#91a6aa')
-# Crop only the genuine General settings panel, omitting unused whitespace/old static footer.
-settings=Image.open(source/'settings.png').crop((0,0,1185,710))
+# Keep the complete current Settings window, including filters and version.
+settings=Image.open(source/'settings.png').convert('RGBA')
+settings=settings.crop(settings.getbbox())
 paste(details,settings,774,(606,113),False)
 details.save(out/'details.png')
 base=backdrop(1200,900);text(base,(49,31),'A LITTLE ISLAND, WHEN YOU NEED IT.',18,'#83bfae',True);stamp(base)
@@ -47,8 +48,8 @@ for index,path in enumerate(sorted((source/'frames').glob('*.png'))):
     im=base.copy();active=0 if index<25 or index>=115 else 1 if index<55 else 2
     for i,label in enumerate(labels):text(im,(49+i*220,100),label,25,'#e6f6ef' if i==active else '#617977',True)
     # Fixed source origin keeps the island centered during production animation.
-    shot=Image.open(path).convert('RGBA');shot=shot.resize((1080,shot.height),Image.Resampling.LANCZOS)
-    im.paste(shot,(60,197),shot);text(im,(49,850),'Actual WPF morph · Synthetic demo data',18,'#a2b9b4')
+    shot=Image.open(path).convert('RGBA');shot=shot.resize((1080,round(shot.height*1080/shot.width)),Image.Resampling.LANCZOS)
+    im.paste(shot,(60,197),shot);text(im,(49,850),'v1.6.4 WPF morph · Synthetic demo data',18,'#a2b9b4')
     frames.append(im)
 # One global palette reduces frame-to-frame color flicker; no metadata/comments.
 palette=hero.resize((360,235)).quantize(colors=240)

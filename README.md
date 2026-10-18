@@ -6,9 +6,9 @@
 <p align="center"><a href="https://github.com/asdstrind/QuotaMonitor/releases/latest"><strong>Download for Windows ↗</strong></a><br><sub>Windows 11 x64 · Bundled runtime, just unzip and run.</sub></p>
 
 <p align="center"><img src="docs/media/overview.png" width="1000" alt="QuotaMonitor expanded view and heatmap — synthetic demo data"></p>
-<p align="center">Codex quota · ClaudeCN & DeepSeek Harness balance and usage<br>Usage history heatmaps · Low-balance alerts · Smooth animations</p>
+<p align="center">Codex quota · ClaudeCN & DeepSeek Harness balance and usage · Antigravity weekly quotas<br>Usage history heatmaps · Harness filters · Low-balance alerts · Smooth animations</p>
 
-<p align="center">v1.6.4 · Antigravity Gemini &amp; Claude/GPT weekly quotas · Harness filters<br><sub>Demo images show v1.5.3 with synthetic data.</sub></p>
+<p align="center"><sub>v1.6.4 · Synthetic demo data</sub></p>
 
 <p align="center"><img src="docs/media/island.gif" width="1000" alt="Minimal to Collapsed to Expanded animation — synthetic demo data"></p>
 <p align="center"><img src="docs/media/details.png" width="1000" alt="Low-balance alerts and Settings — synthetic demo data"></p>
