@@ -20,7 +20,7 @@ public partial class App
         var target="QuotaMonitor/SettingsVerification/"+Environment.ProcessId;var secret=new CredentialStore(target);
         var client=new HttpClient(new SettingsTestHttp());
         var root=Path.Combine(folder,preview?"preview-store":"roundtrip-"+Environment.ProcessId);var isolated=new SettingsStore(root);
-        var config=preview?isolated.Load():new MonitorSettings{ClaudeUserId="42",DshSessionRoot=Path.Combine(root,"not-installed-yet"),DshPricedModel="custom-retained",DshPriceBasis="legacy override",DshInputPerMillion=.25m,HeatmapScale="relative",ClaudeUsageSeconds=780,Left=763,Top=16};
+        var config=preview?isolated.Load():new MonitorSettings{DshSessionRoot=Path.Combine(root,"not-installed-yet"),DshPricedModel="custom-retained",DshPriceBasis="legacy override",DshInputPerMillion=.25m,HeatmapScale="relative",Left=763,Top=16};
         var source=StoreMigration.CandidateFolders(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)).Append(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),"AppData","Local","QuotaMonitor")).FirstOrDefault(p=>File.Exists(Path.Combine(p,"snapshots.json")));
         string? Hash(string name)=>source is not null&&File.Exists(Path.Combine(source,name))?Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(source,name)))):null;
         var before=StoreMigration.Files.ToDictionary(n=>n,Hash);
@@ -45,17 +45,17 @@ public partial class App
                 foreach(var scale in new[]{1d,1.5,2}){var bitmap=AlphaRender(window,scale);WritePng(bitmap,Path.Combine(folder,$"{page.ToLowerInvariant()}-{scale*100:0}.png"));checks[$"Raster{page}{scale*100:0}"]=bitmap.PixelWidth==(int)Math.Ceiling(window.ActualWidth*scale);}
                 var scroll=(ScrollViewer)window.FindName("PageScroll");checks[page+"NoHorizontalOverflow"]=scroll.ExtentWidth<=scroll.ViewportWidth+.5;
             }
-            Nav("ProvidersNav");Nav("ClaudeTab");await Task.Delay(200);DesktopCapture(window,Path.Combine(folder,"claude-desktop.png"));
+            Nav("ProvidersNav");Nav("GoTab");await Task.Delay(200);DesktopCapture(window,Path.Combine(folder,"go-desktop.png"));
             ((PasswordBox)window.FindName("TokenBox")).Password="synthetic-cancelled-token";Click("RemoveToken");window.Close();
             checks["CancelDoesNotDeleteCredential"]=secret.Read()=="synthetic-old-token";checks["CancelDoesNotChangeSettings"]=isolated.Load().DshPricedModel=="custom-retained"&&savedCount==0;
-            window=Open(config);await Task.Delay(150);Nav("AlertsNav");Set("FiveHourThreshold","NaN");checks["InvalidThresholdBlocksSave"]=!window.SaveForSmoke()&&window.IsVisible&&secret.Read()=="synthetic-old-token";Set("FiveHourThreshold","12.5");Set("WeeklyThreshold","9");Set("ClaudeThreshold","2.123456789");Set("DshThreshold","0");
+            window=Open(config);await Task.Delay(150);Nav("AlertsNav");Set("FiveHourThreshold","NaN");checks["InvalidThresholdBlocksSave"]=!window.SaveForSmoke()&&window.IsVisible&&secret.Read()=="synthetic-old-token";Set("FiveHourThreshold","12.5");Set("WeeklyThreshold","9");Set("GoThreshold","2.123456789");Set("DshThreshold","0");
             ((PasswordBox)window.FindName("TokenBox")).Password="synthetic-new-token";checks["PasswordMasked"]=((PasswordBox)window.FindName("TokenBox")).PasswordChar!='\0';
-            checks["SaveWithMissingDshDirectory"]=window.SaveForSmoke();checks["NewCredentialSaved"]=secret.Read()=="synthetic-new-token";var persisted=isolated.Load();checks["ThresholdPrecisionAndDisabledAlert"]=persisted.CodexFiveHourLowPercent==12.5&&persisted.CodexWeeklyLowPercent==9&&persisted.ClaudeLowBalanceUsd==2.123456789m&&persisted.DshLowBalance==0;
-            checks["UneditedLegacyFieldsRetained"]=persisted.HeatmapScale=="relative"&&persisted.ClaudeUsageSeconds==780&&persisted.Left==763&&persisted.DshPricedModel=="custom-retained"&&persisted.DshInputPerMillion==.25m;
+            checks["SaveWithMissingDshDirectory"]=window.SaveForSmoke();checks["NewCredentialSaved"]=secret.Read()=="synthetic-new-token";var persisted=isolated.Load();checks["ThresholdPrecisionAndDisabledAlert"]=persisted.CodexFiveHourLowPercent==12.5&&persisted.CodexWeeklyLowPercent==9&&persisted.GoFiveHourLowPercent==2.123456789&&persisted.DshLowBalance==0;
+            checks["UneditedLegacyFieldsRetained"]=persisted.HeatmapScale=="relative"&&persisted.Left==763&&persisted.DshPricedModel=="custom-retained"&&persisted.DshInputPerMillion==.25m;
             checks["NoTokenInSettingsOrBackup"]=!File.ReadAllText(Path.Combine(root,"settings.json")).Contains("synthetic")&&!File.ReadAllText(Path.Combine(root,"settings.json.bak")).Contains("synthetic");
             window=Open(persisted);await Task.Delay(150);checks["RestartLoadsSavedThreshold"]=((TextBox)window.FindName("FiveHourThreshold")).Text=="12.5";checks["BlankPasswordKeepsCredential"]=window.SaveForSmoke()&&secret.Read()=="synthetic-new-token";
             window=Open(isolated.Load());await Task.Delay(150);Nav("AdvancedNav");((Expander)window.FindName("PriceExpander")).IsExpanded=true;Set("PriceModel","custom-new");Set("PriceInput","0.333");((CheckBox)window.FindName("EstimateOn")).IsChecked=false;Set("DshPathBox","");await Task.Delay(150);DesktopCapture(window,Path.Combine(folder,"advanced-override-desktop.png"));checks["AdvancedOverrideAndAutoPathSave"]=window.SaveForSmoke();persisted=isolated.Load();checks["AdvancedPersists"]=persisted.DshPricedModel=="custom-new"&&persisted.DshInputPerMillion==.333m&&!persisted.DshEstimateEnabled&&persisted.DshSessionRoot=="";
-            window=Open(persisted);await Task.Delay(150);Nav("ProvidersNav");Nav("ClaudeTab");Set("CodexInterval","bad-unrelated-field");Click("TestButton");await Task.Delay(250);checks["ConnectionTestIndependentOfOtherSettings"]=((TextBlock)window.FindName("TestResult")).Text.StartsWith("连接成功");window.Close();
+            window=Open(persisted);await Task.Delay(150);Nav("ProvidersNav");Nav("GoTab");Set("CodexInterval","bad-unrelated-field");Click("TestButton");await Task.Delay(250);checks["ConnectionTestIndependentOfOtherSettings"]=((TextBlock)window.FindName("TestResult")).Text.StartsWith("连接成功");window.Close();
             window=Open(persisted);await Task.Delay(150);Click("RemoveToken");checks["RemoveDeferredUntilSave"]=secret.Read()=="synthetic-new-token";checks["ExplicitRemoveCommits"]=window.SaveForSmoke()&&secret.Read() is null;
             // Failed persistence must roll back a replacement credential.
             secret.Write("synthetic-before-failure");var badStore=new SettingsStore(Path.Combine(root,"failed-save"));Directory.CreateDirectory(Path.Combine(badStore.Root,"settings.json"));window=new SettingsWindow(persisted,badStore,secret,client,()=>{},null,false);window.Show();await Task.Delay(150);((PasswordBox)window.FindName("TokenBox")).Password="synthetic-failed-replacement";checks["FailedSaveRestoresCredential"]=!window.SaveForSmoke()&&secret.Read()=="synthetic-before-failure";window.Close();
@@ -71,8 +71,9 @@ public partial class App
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken cancellationToken)
         {
-            var data=request.RequestUri!.AbsolutePath switch{"/api/user/self"=>"{\"quota\":500000,\"used_quota\":1}","/api/log/self/stat"=>"{\"quota\":1,\"total_requests\":1,\"total_tokens\":100}",_=>"{\"items\":[]}"};
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent("{\"success\":true,\"data\":"+data+"}")});
+            var now=DateTimeOffset.UtcNow;
+            var body=request.RequestUri!.AbsolutePath.EndsWith("export")?"day,provider\n":JsonSerializer.Serialize(new{usage=new{rolling=new{percent=25,status="ok",resetsAt=now.AddHours(2)},weekly=new{percent=35,status="ok",resetsAt=now.AddDays(2)},monthly=new{percent=45,status="ok",resetsAt=now.AddDays(10)}}});
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(body,System.Text.Encoding.UTF8,request.RequestUri.AbsolutePath.EndsWith("export")?"text/csv":"application/json")});
         }
     }
 }

@@ -1,0 +1,145 @@
+{
+  "product": "QuotaMonitor",
+  "version": "1.7.0",
+  "generatedUtc": "2026-11-13T00:01:49+08:00",
+  "syntheticDemoData": true,
+  "statement": "Every public image contains invented synthetic values only. No real account balances, API keys, account IDs, emails, private paths or personal usage are shown. Static PNGs are offline renders of the unchanged production WPF views; the GIFs are real screen captures of the packaged 1.7.0 preview window driven by the app's synthetic fixture. Both contain a permanent SYNTHETIC DEMO DATA marker.",
+  "provenance": "docs/media/PROVENANCE.md",
+  "capture": {
+    "method": "Real screen capture of the packaged QuotaMonitor v1.7.0 preview executable (--preview-v170, synthetic fixture)",
+    "executableSha256": "aaf02b1fb514b7d0a2b675d12ea75823ef1135b17cb9f389e5a735058203fc0f",
+    "note": "No real account, credential, balance or usage data; every asset carries a synthetic demo marker."
+  },
+  "assets": [
+    {
+      "file": "docs/media/v1.7.0/hero.png",
+      "description": "Presentation hero: actual four-provider Expanded UI on the shared dark stage.",
+      "method": "Offline RenderTargetBitmap of unchanged production WPF views via tools/QuotaMonitor.Showcase; no adapters, network, account, credential or production-store access; composed by tools/compose-showcase.py. Not a screen recording.",
+      "dimensions": "1440x1040",
+      "bytes": 233355,
+      "sha256": "a86a516ad43ba794fe03370ceb7ac966b449a76f388cd7d0a232f6dcc0fac53d",
+      "syntheticDemoData": true
+    },
+    {
+      "file": "docs/media/v1.7.0/expanded.png",
+      "description": "Expanded island with four providers, quota windows and the 26-week heatmap.",
+      "method": "Offline RenderTargetBitmap of unchanged production WPF views via tools/QuotaMonitor.Showcase; no adapters, network, account, credential or production-store access; composed by tools/compose-showcase.py. Not a screen recording.",
+      "dimensions": "1440x1068",
+      "bytes": 215108,
+      "sha256": "aa00c1bec0334cc0fd5f36a7b99ae34a39bfc7e37c2e45e9ff4149b4ab0db1d5",
+      "syntheticDemoData": true
+    },
+    {
+      "file": "docs/media/v1.7.0/collapsed.png",
+      "description": "Collapsed capsule with each visible provider's limiting value.",
+      "method": "Offline RenderTargetBitmap of unchanged production WPF views via tools/QuotaMonitor.Showcase; no adapters, network, account, credential or production-store access; composed by tools/compose-showcase.py. Not a screen recording.",
+      "dimensions": "1440x430",
+      "bytes": 82973,
+      "sha256": "476f302bc7a0fe08a5f27f8778bf8292ed8fea57b73771e26472cb99d718ea15",
+      "syntheticDemoData": true
+    },
+    {
+      "file": "docs/media/v1.7.0/minimal.png",
+      "description": "Minimal 8 px resting strip at the app's 150% raster scale.",
+      "method": "Offline RenderTargetBitmap of unchanged production WPF views via tools/QuotaMonitor.Showcase; no adapters, network, account, credential or production-store access; composed by tools/compose-showcase.py. Not a screen recording.",
+      "dimensions": "1440x400",
+      "bytes": 54509,
+      "sha256": "3ee1d5f7af3fd321552ec7b37ef491f5ba5a7efbd16a494f9d40ee77b4756f20",
+      "syntheticDemoData": true
+    },
+    {
+      "file": "docs/media/v1.7.0/alert-minimal.png",
+      "description": "Alert Minimal low-quota capsules from the production alert evaluator.",
+      "method": "Offline RenderTargetBitmap of unchanged production WPF views via tools/QuotaMonitor.Showcase; no adapters, network, account, credential or production-store access; composed by tools/compose-showcase.py. Not a screen recording.",
+      "dimensions": "1440x345",
+      "bytes": 87540,
+      "sha256": "60b30b266e49b8977fa5455085a0ac6bd142831518a77803d3aec3ff9022d27e",
+      "syntheticDemoData": true
+    },
+    {
+      "file": "docs/media/v1.7.0/states.png",
+      "description": "Minimal / Collapsed / Expanded / Alert Minimal presentation.",
+      "method": "Offline RenderTargetBitmap of unchanged production WPF views via tools/QuotaMonitor.Showcase; no adapters, network, account, credential or production-store access; composed by tools/compose-showcase.py. Not a screen recording.",
+      "dimensions": "1440x1448",
+      "bytes": 313722,
+      "sha256": "980f48afb69b1f17071341c0f2dddcaabb0c615250e13640197864b12cd34b73",
+      "syntheticDemoData": true
+    },
+    {
+      "file": "docs/media/v1.7.0/opencode-go.png",
+      "description": "OpenCode Go only: 5-hour, weekly and monthly windows with resets.",
+      "method": "Offline RenderTargetBitmap of unchanged production WPF views via tools/QuotaMonitor.Showcase; no adapters, network, account, credential or production-store access; composed by tools/compose-showcase.py. Not a screen recording.",
+      "dimensions": "1440x1241",
+      "bytes": 196235,
+      "sha256": "31adea2eee343fd682effffe5b7967f547755595ab19787c21c6a72463253241",
+      "syntheticDemoData": true
+    },
+    {
+      "file": "docs/media/v1.7.0/heatmap.png",
+      "description": "26-week token heatmap close-up with legend and provider totals.",
+      "method": "Offline RenderTargetBitmap of unchanged production WPF views via tools/QuotaMonitor.Showcase; no adapters, network, account, credential or production-store access; composed by tools/compose-showcase.py. Not a screen recording.",
+      "dimensions": "1440x824",
+      "bytes": 159715,
+      "sha256": "fbe3f34a8602541b273a02ead7c0dafbe1fc10eab923c6917be8f82f76ca040c",
+      "syntheticDemoData": true
+    },
+    {
+      "file": "docs/media/v1.7.0/tooltip.png",
+      "description": "Real date tooltip with per-provider token totals, unclipped.",
+      "method": "Offline RenderTargetBitmap of unchanged production WPF views via tools/QuotaMonitor.Showcase; no adapters, network, account, credential or production-store access; composed by tools/compose-showcase.py. Not a screen recording.",
+      "dimensions": "1440x1182",
+      "bytes": 244832,
+      "sha256": "9fd1b82db264eb99570f5056e4d683e7350736e2bad91e7dea0fab144691b865",
+      "syntheticDemoData": true
+    },
+    {
+      "file": "docs/media/v1.7.0/settings.png",
+      "description": "Four real Settings tabs: General, Providers, Alerts, Advanced.",
+      "method": "Offline RenderTargetBitmap of unchanged production WPF views via tools/QuotaMonitor.Showcase; no adapters, network, account, credential or production-store access; composed by tools/compose-showcase.py. Not a screen recording.",
+      "dimensions": "1440x1622",
+      "bytes": 359414,
+      "sha256": "156d22c9391bf64d5590e8ee3384befaafe46f9c03362fda00594d9045aa2b89",
+      "syntheticDemoData": true
+    },
+    {
+      "file": "docs/media/v1.7.0/layouts.png",
+      "description": "One, two, three and four visible-provider Expanded layouts.",
+      "method": "Offline RenderTargetBitmap of unchanged production WPF views via tools/QuotaMonitor.Showcase; no adapters, network, account, credential or production-store access; composed by tools/compose-showcase.py. Not a screen recording.",
+      "dimensions": "1440x1204",
+      "bytes": 341814,
+      "sha256": "2a8046992c33d8cca4cb01af89fa0973581b638353fd277dcda20015f8c498ab",
+      "syntheticDemoData": true
+    },
+    {
+      "file": "docs/media/v1.7.0/heatmap.gif",
+      "description": "Real window capture: hover tooltips on the four-provider 26-week heatmap.",
+      "method": "Real screen capture of the packaged QuotaMonitor 1.7.0 --preview-v170 window (synthetic preview fixture only) by tools/capture-v170/capture-preview.ps1; the preview window's flat synthetic background is keyed out and the captured island is composed on the shared stage by tools/capture-v170/encode-gifs.py.",
+      "dimensions": "1100x840",
+      "bytes": 1868225,
+      "sha256": "483730b49812177add59b31ba1f2639b004efb1ca8ee5bde7749824ff647b3d9",
+      "syntheticDemoData": true,
+      "frames": 50,
+      "durationSeconds": 4.84,
+      "loop": true
+    },
+    {
+      "file": "docs/media/v1.7.0/quota.gif",
+      "description": "Real window capture: four-provider quota, collapsed limiting values, Alert Minimal.",
+      "method": "Real screen capture of the packaged QuotaMonitor 1.7.0 --preview-v170 window (synthetic preview fixture only) by tools/capture-v170/capture-preview.ps1; the preview window's flat synthetic background is keyed out and the captured island is composed on the shared stage by tools/capture-v170/encode-gifs.py.",
+      "dimensions": "1100x840",
+      "bytes": 2022688,
+      "sha256": "95e1bd33d18f375d005280bc4f451baab08f83e090d73b4ef981a045a4320121",
+      "syntheticDemoData": true,
+      "frames": 118,
+      "durationSeconds": 6.88,
+      "loop": true
+    }
+  ],
+  "dropped": [
+    {
+      "file": "docs/media/v1.7.0/morph.gif",
+      "reason": "Not shipped: transient collapse/expand frames in the real capture contain an empty black shell that reads as a host-window artifact in a public GIF. states.png covers the four island states instead."
+    }
+  ],
+  "problems": []
+}

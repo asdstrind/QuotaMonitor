@@ -1,6 +1,6 @@
-# Antigravity 本地 Token 历史读取边界
+# Antigravity 本地 Token 历史读取边界（v1.7.0）
 
-v1.6.4 的历史通道独立于 Weekly 额度查询。实现入口为 `AntigravityHistorySource`，由 `HistoryCoordinator` 调度，仍只持久化既有 `UsageHistory` 每日汇总结构。源标识不按模型家族拆分：Antigravity 中的 Claude/GPT 模型仍属于 Antigravity；不会因此导入 ClaudeCN 或 Codex 的历史。现有 ClaudeCN 服务端账单与 Codex 本地日志各有独立来源；本实现不依据模型名、相同 Token 数或相近时间跨服务猜测合并，无法证明不同系统账单记录是否指向同一上游请求。
+v1.7.0 的历史通道独立于 Weekly 额度查询。实现入口为 `AntigravityHistorySource`，由 `HistoryCoordinator` 调度，仍只持久化既有 `UsageHistory` 每日汇总结构。源标识不按模型家族拆分：Antigravity 中的 Claude/GPT 模型仍属于 Antigravity，不会因此导入 Codex 或其他平台的历史。各平台历史来源彼此独立；本实现不依据模型名、相同 Token 数或相近时间跨服务猜测合并，无法证明不同系统记录是否指向同一上游请求。已移除的旧 ClaudeCN 平台的历史文件原样保留，但不展示、不映射到当前四个平台。
 
 ## 读取范围和隐私
 
@@ -16,7 +16,7 @@ v1.6.4 的历史通道独立于 Weekly 额度查询。实现入口为 `Antigravi
 
 会话文件名+idx 标识数据库副本中的同一行；response ID 标识跨会话的同一请求。关联标识合并后若时间、模型或计数冲突，排除整组，不选最大值。独立会话的不同请求保留。SQLite 存在时不混用 JSONL；即使数据库坏掉，也不以较小的 JSONL 缓存掩盖失败。
 
-普通额外列及 WITHOUT ROWID 可读；视图、虚表、隐藏/生成列及不认识的 schema 不作为可用历史。没有 gen_metadata 的其他数据库跳过。元数据读取失败可保留其他已验证记录，所有相关日期使用既有 Partial 质量标记；未映射重试同样不能建立完整性。没有已知正数的部分结果不建立零日期。完整已识别历史仅在最早可核验时间记录到今天、并与显示窗口相交的范围内生成零日期；空表和覆盖前日期保持未知。
+普通额外列及 WITHOUT ROWID 可读；视图、虚表、隐藏/生成列及不认识的 schema 不作为可用历史。没有 gen_metadata 的其他数据库跳过。元数据读取失败可保留其他已验证记录，所有相关日期使用既有 Partial 质量标记；未映射重试同样不能建立完整性。没有已知正数的部分结果不建立零日期。完整已识别历史在最早可核验时间记录到今天的范围内生成零日期；仅热力图显示层截取近 26 周；空表和覆盖前日期保持未知。
 
 JSONL 仅接受 Tokscale session_meta/usage、毫秒事件时间和整数计数，必需 input/output；缓存字段别名冲突视为不完整。非零 reasoning 因与 output 的包含关系无法独立确认而排除；缓存始终是不完整的本机快照，不证明实时或完整。
 

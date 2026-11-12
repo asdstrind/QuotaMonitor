@@ -27,11 +27,11 @@ public sealed class MorphTests
         var now=DateTimeOffset.UtcNow;var settings=new MonitorSettings();
         for(var mask=0;mask<16;mask++)
         {
-            ProviderSnapshot[] providers=[new(){ProviderId="codex",DisplayName="Codex",LastUpdated=now,ConnectionStatus=ConnectionStatus.Ready,Windows=[new("codex","Primary",(mask&1)>0?88:10,300,now.AddHours(1)),new("codex","Secondary",(mask&2)>0?92:10,10080,now.AddDays(1))]},new(){ProviderId="claude",DisplayName="Claude",LastUpdated=now,ConnectionStatus=ConnectionStatus.Partial,Currency="USD",RemainingBalance=(mask&4)>0?.52m:10},new(){ProviderId="dsh",DisplayName="DSH",ConnectionStatus=ConnectionStatus.Partial,AccountBalance=new(new([new("CNY",(mask&8)>0?".35":"10"),new("CNY",".45")],[],now,"fixture"),DshBalanceState.Ready,null)}];
+            ProviderSnapshot[] providers=[new(){ProviderId="codex",DisplayName="Codex",LastUpdated=now,ConnectionStatus=ConnectionStatus.Ready,Windows=[new("codex","Primary",(mask&1)>0?88:10,300,now.AddHours(1)),new("codex","Secondary",(mask&2)>0?92:10,10080,now.AddDays(1))]},new(){ProviderId="opencode-go",DisplayName="OpenCode Go",LastUpdated=now,ConnectionStatus=ConnectionStatus.Partial,Windows=[new("rolling","5 小时",(mask&4)>0?93:10,300,now.AddHours(2))]},new(){ProviderId="dsh",DisplayName="DSH",ConnectionStatus=ConnectionStatus.Partial,AccountBalance=new(new([new("CNY",(mask&8)>0?".35":"10"),new("CNY",".45")],[],now,"fixture"),DshBalanceState.Ready,null)}];
             var slots=LowQuotaAlerts.Minimal(LowQuotaAlerts.Evaluate(providers,settings,now));
             Assert.Equal(((mask&3)>0?1:0)+((mask&4)>0?1:0)+((mask&8)>0?1:0),slots.Count);
             if((mask&3)>0)Assert.Equal((mask&2)>0?"7d 8%":"5h 12%",slots[0].Value);
-            if((mask&4)>0)Assert.Equal("$0.52",slots.Single(a=>a.Key=="claude").Value);
+            if((mask&4)>0)Assert.Equal("5h 7%",slots.Single(a=>a.Key=="go-5h").Value);
             if((mask&8)>0)Assert.Equal("¥0.80",slots.Single(a=>a.Key=="dsh").Value);
         }
     }

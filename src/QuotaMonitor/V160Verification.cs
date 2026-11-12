@@ -48,14 +48,14 @@ public partial class App
             void Fixture(int mode)
             {
                 model.Codex.Update(new(){ProviderId="codex",DisplayName="Codex",MetricType=MetricType.Quota,LastUpdated=now,ConnectionStatus=ConnectionStatus.Ready,Windows=[new("codex","Primary",90,300,now.AddHours(2)),new("codex","Secondary",92,10080,now.AddDays(2))],RemainingPercent=8});
-                model.Claude.Update(new(){ProviderId="claude",DisplayName="ClaudeCN",LastUpdated=now,ConnectionStatus=ConnectionStatus.Ready,RemainingBalance=2.35m,Currency="USD"});
+                model.Go.Update(new(){ProviderId="opencode-go",DisplayName="OpenCode Go",MetricType=MetricType.Quota,LastUpdated=now,ConnectionStatus=ConnectionStatus.Ready,RemainingPercent=12,Windows=[new("rolling","5 小时",88,300,now.AddHours(2)),new("weekly","每周",91,10080,now.AddDays(2)),new("monthly","每月",94,null,now.AddDays(12))]});
                 model.Dsh.Update(new(){ProviderId="dsh",DisplayName="DSH",ConnectionStatus=ConnectionStatus.Partial,AccountBalance=new(new([new("CNY","3.28")],[new("CNY","10.50")],now,"synthetic fixture"),DshBalanceState.Ready,null)});
                 model.Antigravity.Update(Ag(mode));model.UpdateAlerts(config,now);
             }
             foreach(var id in UsageGrid.Order)model.Providers.Add(new(ProviderSnapshot.Empty(id,MonitorViewModel.NameOf(id),MetricType.Quota)));
-            foreach(var (id,multiplier) in new[]{("codex",21000L),("claude",17000L),("dsh",32000L)})
+            foreach(var (id,multiplier) in new[]{("codex",21000L),("opencode-go",17000L),("dsh",32000L)})
             {
-                var days=Enumerable.Range(0,175).Where(i=>(i+(id=="dsh"?2:0))%13!=0).Select(i=>new UsageDay(today.AddDays(-i),i%7==0?0:((i*37+(id=="claude"?17:0))%71)*multiplier,1,null,i%17==0?UsageQuality.Partial:UsageQuality.Exact,now,Excluded:i%17==0?1:0)).ToArray();
+                var days=Enumerable.Range(0,175).Where(i=>(i+(id=="dsh"?2:0))%13!=0).Select(i=>new UsageDay(today.AddDays(-i),i%7==0?0:((i*37+(id=="opencode-go"?17:0))%71)*multiplier,1,null,i%17==0?UsageQuality.Partial:UsageQuality.Exact,now,Excluded:i%17==0?1:0)).ToArray();
                 model.UpdateHistory(new(){ProviderId=id,Days=days,Source="synthetic fixture",Scope="UI regression only"},today);
             }
             model.ApplyVisibility(config,today);Fixture(3);
@@ -82,21 +82,21 @@ public partial class App
             var originalHistories=JsonSerializer.Serialize(model.Histories);
             for(var mask=0;mask<16;mask++)
             {
-                config.ShowCodex=(mask&1)>0;config.ShowClaude=(mask&2)>0;config.ShowDsh=(mask&4)>0;config.ShowAntigravity=(mask&8)>0;
+                config.ShowCodex=(mask&1)>0;config.ShowGo=(mask&2)>0;config.ShowDsh=(mask&4)>0;config.ShowAntigravity=(mask&8)>0;
                 model.ApplyVisibility(config,today);window.SetState(IslandState.Expanded,false);await Task.Delay(35);window.UpdateLayout();
                 var ids=UsageGrid.Order.Where(config.Visible).ToArray();
                 checks[$"Mask{mask:D2}Data"]=ids.SequenceEqual(model.VisibleProviders.Select(p=>p.Id))&&ids.SequenceEqual(model.Grid!.Providers.Select(p=>p.Id))&&ids.SequenceEqual(model.Lanes.Select(p=>p.Id));
                 var instruments=(ItemsControl)window.FindName("Instruments");
                 checks[$"Mask{mask:D2}Visual"]=instruments.Items.Count==ids.Length&&((Button)FindVisual<Button>(window).First(b=>System.Windows.Automation.AutomationProperties.GetAutomationId(b)=="Settings")).IsVisible;
                 checks[$"Mask{mask:D2}Tip"]=model.BuildTip(model.Grid!.Days[^1]).Rows.Select(r=>r.Name).SequenceEqual(ids.Select(MonitorViewModel.NameOf));
-                checks[$"Mask{mask:D2}Alert"]=model.Alerts.All(a=>a.Key.StartsWith("codex",StringComparison.Ordinal)?config.ShowCodex:a.Key.StartsWith("ag-",StringComparison.Ordinal)?config.ShowAntigravity:a.Key=="claude"?config.ShowClaude:config.ShowDsh);
+                checks[$"Mask{mask:D2}Alert"]=model.Alerts.All(a=>a.Key.StartsWith("codex",StringComparison.Ordinal)?config.ShowCodex:a.Key.StartsWith("ag-",StringComparison.Ordinal)?config.ShowAntigravity:a.Key=="opencode-go"?config.ShowGo:config.ShowDsh);
                 checks[$"Mask{mask:D2}NoHistoryLoss"]=originalHistories==JsonSerializer.Serialize(model.Histories);
                 if(mask==0)checks["CompactEmptyExpanded"]=window.VisualWidth==420&&window.VisualHeight<180&&heatmap.Visibility==Visibility.Collapsed;
                 if(mask is 0 or 7 or 15)Capture(window,Path.Combine(folder,$"mask-{mask:D2}-expanded-fixture.png"));
                 window.SetState(IslandState.Collapsed,false);checks[$"Mask{mask:D2}Collapsed"]=((ItemsControl)FindVisual<ItemsControl>((FrameworkElement)window.FindName("Compact")).First()).Items.Count==ids.Length;
                 if(mask is 0 or 15)Capture(window,Path.Combine(folder,$"mask-{mask:D2}-collapsed-fixture.png"));
             }
-            config.ShowCodex=config.ShowClaude=config.ShowDsh=config.ShowAntigravity=true;model.ApplyVisibility(config,today);
+            config.ShowCodex=config.ShowGo=config.ShowDsh=config.ShowAntigravity=true;model.ApplyVisibility(config,today);
             Fixture(0);window.SetState(IslandState.Collapsed,false);window.UpdateLayout();
             var compact=(FrameworkElement)window.FindName("Compact");
             checks["LongestWeeklyCollapsed"]=FindVisual<StackPanel>(compact).Where(p=>p.Orientation==Orientation.Horizontal&&p.DataContext is ProviderViewModel).All(p=>{
@@ -133,7 +133,7 @@ public partial class App
             model.SettingsCommand.Execute(null);await Task.Delay(100);
             foreach(var mask in Enumerable.Range(0,16))
             {
-                var names=new[]{"Codex","Claude","Dsh","Antigravity"};
+                var names=new[]{"Codex","Go","Dsh","Antigravity"};
                 for(var n=0;n<4;n++)((CheckBox)prefs!.FindName("Show"+names[n]+"Check")).IsChecked=(mask&(1<<n))!=0;
                 prefs!.UpdateLayout();
                 checks[$"SettingsMask{mask:D2}"]=names.Select((name,n)=>((RadioButton)prefs.FindName(name+"Tab")).Visibility==((mask&(1<<n))!=0?Visibility.Visible:Visibility.Collapsed)).All(v=>v);

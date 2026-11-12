@@ -35,11 +35,11 @@ public partial class App
             void Fixture(int mode=0)
             {
                 model.Codex.Update(new(){ProviderId="codex",DisplayName="Codex",MetricType=MetricType.Quota,LastUpdated=now,ConnectionStatus=ConnectionStatus.Ready,Windows=[new("codex","Primary",90,300,now.AddHours(2)),new("codex","Secondary",92,10080,now.AddDays(2))],RemainingPercent=8});
-                model.Claude.Update(new(){ProviderId="claude",DisplayName="ClaudeCN",LastUpdated=now,ConnectionStatus=ConnectionStatus.Ready,RemainingBalance=2.35m,Currency="USD"});
+                model.Go.Update(new(){ProviderId="opencode-go",DisplayName="OpenCode Go",MetricType=MetricType.Quota,LastUpdated=now,ConnectionStatus=ConnectionStatus.Ready,RemainingPercent=12,Windows=[new("rolling","5 小时",88,300,now.AddHours(2)),new("weekly","每周",91,10080,now.AddDays(2)),new("monthly","每月",94,null,now.AddDays(12))]});
                 model.Dsh.Update(new(){ProviderId="dsh",DisplayName="DSH",ConnectionStatus=ConnectionStatus.Partial,AccountBalance=new(new([new("CNY","3.28")],[new("CNY","10.50")],now,"synthetic fixture"),DshBalanceState.Ready,null)});
                 model.Antigravity.Update(new(){ProviderId="antigravity",DisplayName="Antigravity",MetricType=MetricType.Quota,LastUpdated=now,ConnectionStatus=ConnectionStatus.Ready,Windows=[new("gemini-weekly","Gemini",mode is 1 or 3?85:0,10080,now.AddDays(4)),new("3p-weekly","Claude/GPT",mode is 2 or 3?92:0,10080,now.AddDays(5))]});model.UpdateAlerts(config,now);
             }
-            foreach(var (id,multiplier) in (v162?new[]{("codex",21000L),("claude",17000L),("dsh",32000L),("antigravity",47000L)}:new[]{("codex",21000L),("claude",17000L),("dsh",32000L)}))
+            foreach(var (id,multiplier) in (v162?new[]{("codex",21000L),("opencode-go",17000L),("dsh",32000L),("antigravity",47000L)}:new[]{("codex",21000L),("opencode-go",17000L),("dsh",32000L)}))
                 model.UpdateHistory(new(){ProviderId=id,Days=Enumerable.Range(0,182).Select(i=>new UsageDay(today.AddDays(-i),((i*37)%71)*multiplier,1,null,i%17==0?UsageQuality.Partial:UsageQuality.Exact,now)).ToArray(),Source="synthetic fixture",Scope="UI regression only"},today);
             model.ApplyVisibility(config,today);Fixture();
             model.RefreshCommand=new ActionCommand(()=>Fixture());
@@ -69,7 +69,7 @@ public partial class App
                 var history=JsonSerializer.Serialize(model.Histories);
                 for(var mask=0;mask<16;mask++)
                 {
-                    config.ShowCodex=(mask&1)!=0;config.ShowClaude=(mask&2)!=0;config.ShowDsh=(mask&4)!=0;config.ShowAntigravity=(mask&8)!=0;model.ApplyVisibility(config,today);
+                    config.ShowCodex=(mask&1)!=0;config.ShowGo=(mask&2)!=0;config.ShowDsh=(mask&4)!=0;config.ShowAntigravity=(mask&8)!=0;model.ApplyVisibility(config,today);
                     window.SetState(IslandState.Collapsed,false);await Task.Delay(60);window.UpdateLayout();
                     var compact=(FrameworkElement)window.FindName("Compact");
                     var items=FindVisual<ItemsControl>(compact).First();
@@ -101,7 +101,7 @@ public partial class App
                     }
                     checks[$"Mask{mask:D2}History"]=history==JsonSerializer.Serialize(model.Histories);
                 }
-                config.ShowCodex=config.ShowClaude=config.ShowDsh=config.ShowAntigravity=true;model.ApplyVisibility(config,today);window.SetState(IslandState.Expanded,false);await Task.Delay(100);
+                config.ShowCodex=config.ShowGo=config.ShowDsh=config.ShowAntigravity=true;model.ApplyVisibility(config,today);window.SetState(IslandState.Expanded,false);await Task.Delay(100);
                 var before=window.MorphEvidence.ToString();var mapSize=heatmap.RenderSize;
                 foreach(var id in UsageGrid.Order)
                 {
@@ -121,7 +121,7 @@ public partial class App
                     var original=model.Histories.Single(h=>h.ProviderId=="antigravity");
                     model.UpdateHistory(original with{Days=original.Days.Select(d=>d with{Quality=UsageQuality.Partial}).ToArray(),Error="Partial fixture"},today);
                     await Task.Delay(100);window.UpdateLayout();
-                    checks["AntigravityMatchesTokenFormat"]=model.Lanes.Single(l=>l.Id=="antigravity").Total==Format.Tokens(model.Grid!.Providers.Single(p=>p.Id=="antigravity").Tokens)&&model.Lanes.Single(l=>l.Id=="antigravity").HasIssue;
+                    checks["AntigravityMatchesTokenFormat"]=model.Lanes.Single(l=>l.Id=="antigravity").Total==(model.Grid!.Providers.Single(p=>p.Id=="antigravity").Cumulative.Tokens is {} total?Format.Tokens(total):"—")&&model.Lanes.Single(l=>l.Id=="antigravity").HasIssue;
                     checks["AntigravityTokenNumberRendered"]=FindVisual<TextBlock>(window).Any(t=>t.IsVisible&&t.Text==model.Lanes.Single(l=>l.Id=="antigravity").Total);
                     checks["LegendWithinPanel"]=FindVisual<Border>(window).Where(b=>b.Tag is string id&&UsageGrid.Order.Contains(id)).All(b=>b.TransformToVisual(window).TransformBounds(new Rect(b.RenderSize)).Right<=window.ActualWidth);
                     foreach(var scale in new[]{1d,1.5,2})Raster(window,Path.Combine(folder,$"partial-expanded-{scale*100:0}.png"),scale);
@@ -172,7 +172,7 @@ public partial class App
                 model.SettingsCommand.Execute(null);await Task.Delay(100);
                 if(v162)
                 {
-                    var providerNames=new[]{"Codex","Claude","Dsh","Antigravity"};var providerIds=new[]{"codex","claude","dsh","antigravity"};
+                    var providerNames=new[]{"Codex","Go","Dsh","Antigravity"};var providerIds=new[]{"codex","opencode-go","dsh","antigravity"};
                     for(var n=0;n<4;n++)
                     {
                         var check=(CheckBox)prefs!.FindName("Show"+providerNames[n]+"Check");
@@ -194,7 +194,7 @@ public partial class App
                 }
                 for(var mask=0;mask<16;mask++)
                 {
-                    var names=new[]{"Codex","Claude","Dsh","Antigravity"};
+                    var names=new[]{"Codex","Go","Dsh","Antigravity"};
                     for(var n=0;n<4;n++)((CheckBox)prefs!.FindName("Show"+names[n]+"Check")).IsChecked=(mask&(1<<n))!=0;
                     prefs!.UpdateLayout();checks["SettingsMask"+mask]=names.Select((id,n)=>((RadioButton)prefs.FindName(id+"Tab")).Visibility==((mask&(1<<n))!=0?Visibility.Visible:Visibility.Collapsed)).All(v=>v);
                 }

@@ -66,6 +66,8 @@ tools/icon-release.py
 tools/make-morph-evidence.py
 tools/verify-bridge-runtime.cjs
 tools/QuotaMonitor.IconVerification/
+tools/QuotaMonitor.GoVerification/
+tools/scan-local-release.py
 VERIFICATION.md
 **/snapshots.json
 **/history.json

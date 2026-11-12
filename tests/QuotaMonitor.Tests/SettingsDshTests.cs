@@ -8,7 +8,7 @@ public sealed class SettingsDshTests
 {
     [Fact] public void LegacyJsonKeepsAllFieldsAndOptInEstimateDefault()
     {
-        var old=new MonitorSettings{ClaudeUserId="42",QuotaPerUsd=123456,DshPricedModel="custom-model",DshInputPerMillion=.2m,DshPriceBasis="custom verified",DshSessionRoot="custom-sessions",Left=712,Top=38,HeatmapScale="relative",ClaudeUsageSeconds=780,AutoStart=true};
+        var old=new MonitorSettings{DshPricedModel="custom-model",DshInputPerMillion=.2m,DshPriceBasis="custom verified",DshSessionRoot="custom-sessions",Left=712,Top=38,HeatmapScale="relative",AutoStart=true};
         var text=JsonSerializer.Serialize(old);using var doc=JsonDocument.Parse(text);var legacy=JsonSerializer.Serialize(doc.RootElement.EnumerateObject().Where(p=>p.Name!="DshEstimateEnabled").ToDictionary(p=>p.Name,p=>p.Value));var migrated=JsonSerializer.Deserialize<MonitorSettings>(legacy)!;
         Assert.True(migrated.DshEstimateEnabled);Assert.Equal(JsonSerializer.Serialize(old),JsonSerializer.Serialize(migrated));
     }

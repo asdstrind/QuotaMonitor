@@ -1,43 +1,50 @@
 import net from 'node:net';
 import { homedir } from 'node:os';
 import { createHash } from 'node:crypto';
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
+import { Service } from '@deepseek-ai/cordis';
 import { wallets } from './projection.js';
 import { credentialKey } from '@deepseek-ai/dsh-credentials';
 import { BalancePoller } from './poller.js';
 import { getDshRuntimeVersion } from '@deepseek-ai/dsh-app-boot';
 
-const initializers = [];
 const pipe = '\\\\.\\pipe\\QuotaMonitor.DshBalance.' + createHash('sha256').update(homedir().toLowerCase()).digest('hex').slice(0, 16);
 export const inject = [];
-export class BalanceBridge extends TypertRemoteService {
+export class BalanceBridge extends Service {
   constructor(ctx, config = {}) {
     super(ctx, 'quotaBalanceBridge');
-    for (const initialize of initializers) initialize.call(this);
     this.sourceVersion = getDshRuntimeVersion();
     this.latest = { protocol: 1, sourceVersion: this.sourceVersion, state: 'loading' };
     this.closed = false;
     this.pipeName = config.pipeName ?? pipe;
     this.delay = 1000;
+    this.diagnose('plugin-loaded');
     ctx.effect(() => {
       this.connect();
       return () => { this.closed = true; clearTimeout(this.timer); this.socket?.destroy(); };
     }, 'balance bridge pipe lifetime');
     ctx.inject(['deepseekAccount'], scope => {
-      this.autonomous = true;
+      this.accountAttached = true;
       const poller = new BalancePoller(scope.deepseekAccount, snapshot => this.accept(snapshot), {
+        diagnose: event => this.diagnose(event),
         client: () => ({ version: this.sourceVersion, locale: Intl.DateTimeFormat().resolvedOptions().locale, timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60 })
       });
       const accountKey = credentialKey('deepseek-account-platform', 'default');
       scope.on('credentials/record-updated', key => { if (key === accountKey) poller.changed(); });
       scope.on('deepseek-account/signed-out', () => poller.changed());
       scope.effect(() => poller.start(), 'balance bridge background queries');
-      scope.effect(() => () => this.accept({ state: 'unavailable' }), 'balance bridge account service lost');
+      scope.effect(() => () => { this.accountAttached = false; this.diagnose('host-api-lost'); this.accept({ state: 'unavailable' }); }, 'balance bridge account service lost');
     });
+    ctx.effect(() => {
+      const timer = setTimeout(() => { if (!this.accountAttached) { this.diagnose('host-api-missing'); this.accept({ state: 'unavailable' }); } }, 10000);
+      timer.unref();
+      return () => clearTimeout(timer);
+    }, 'balance bridge service diagnostic');
   }
-  publish(snapshot) {
-    // Legacy UI clients must not overwrite Host results or renew their timestamps.
-    return !this.autonomous && this.accept(snapshot);
+  diagnose(event) {
+    // Fixed event codes only: never stringify exceptions, snapshots or account data.
+    if (this.lastDiagnostic === event) return;
+    this.lastDiagnostic = event;
+    console.info(`[QuotaMonitor Bridge] ${event}; host=${this.sourceVersion}; protocol=1`);
   }
   accept(snapshot) {
     if (!snapshot || !['ready', 'loading', 'failed', 'signed-out', 'unavailable'].includes(snapshot.state)) return false;
@@ -67,8 +74,8 @@ export class BalanceBridge extends TypertRemoteService {
     if (this.closed) return;
     const socket = this.socket = net.createConnection(this.pipeName);
     socket.setTimeout(3000, () => socket.destroy());
-    socket.on('error', () => {}); // No response bodies or diagnostic secrets.
-    socket.on('connect', () => { this.delay = 1000; socket.setTimeout(0); this.send(); });
+    socket.on('error', () => this.diagnose('ipc-unavailable'));
+    socket.on('connect', () => { this.delay = 1000; socket.setTimeout(0); this.diagnose('ipc-connected'); this.send(); });
     socket.on('data', data => { if (data.length > 64) socket.destroy(); });
     socket.on('close', () => {
       if (this.socket === socket) this.socket = undefined;
@@ -76,6 +83,4 @@ export class BalanceBridge extends TypertRemoteService {
     });
   }
 }
-// Invoke the public standard decorator API without a TypeScript build dependency.
-Remote(BalanceBridge.prototype.publish, { kind: 'method', name: 'publish', private: false, static: false, addInitializer: fn => initializers.push(fn) });
 export function apply(ctx) { ctx.plugin(BalanceBridge); }

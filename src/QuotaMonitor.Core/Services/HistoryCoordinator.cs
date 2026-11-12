@@ -63,7 +63,7 @@ public sealed class HistoryCoordinator : IAsyncDisposable
 
     public Task RefreshAsync(bool force) => Task.WhenAll(slots.Select(s => RefreshSlotAsync(s, force)));
 
-    public static TimeSpan Interval(string id) => id switch { "claude" => TimeSpan.FromMinutes(5), "codex" => TimeSpan.FromMinutes(3), _ => TimeSpan.FromMinutes(2) };
+    public static TimeSpan Interval(string id) => id switch { "opencode-go" => TimeSpan.FromMinutes(30), "codex" => TimeSpan.FromMinutes(3), _ => TimeSpan.FromMinutes(2) };
 
     private async Task RefreshSlotAsync(Slot slot, bool force)
     {

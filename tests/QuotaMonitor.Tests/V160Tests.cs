@@ -82,11 +82,11 @@ public sealed class V160Tests
         var original=JsonSerializer.Serialize(vm.Histories);
         for(var mask=0;mask<16;mask++)
         {
-            var s=new MonitorSettings{ShowCodex=(mask&1)>0,ShowClaude=(mask&2)>0,ShowDsh=(mask&4)>0,ShowAntigravity=(mask&8)>0};
+            var s=new MonitorSettings{ShowCodex=(mask&1)>0,ShowGo=(mask&2)>0,ShowDsh=(mask&4)>0,ShowAntigravity=(mask&8)>0};
             vm.HoverLane="codex";vm.ApplyVisibility(s,Today);
             var ids=UsageGrid.Order.Where(s.Visible).ToArray();Assert.Equal(ids,vm.VisibleProviders.Select(p=>p.Id));Assert.Equal(ids,vm.Grid!.Providers.Select(p=>p.Id));Assert.Equal(ids,vm.Lanes.Select(p=>p.Id));
             var day=vm.Grid.Days[^1];Assert.Equal(ids,day.Lanes.Select(l=>l.ProviderId));
-            Assert.Equal(ids.Select(MonitorViewModel.NameOf),vm.BuildTip(day).Rows.Select(r=>r.Name));
+            Assert.Equal(ids.Select(id=>MonitorViewModel.NameOf(id)+(id=="opencode-go"?" · UTC":"")),vm.BuildTip(day).Rows.Select(r=>r.Name));
             Assert.Equal(ids.Length==0,vm.NoVisibleProviders);
             if(ids.Contains("antigravity"))Assert.NotNull(vm.Grid.Providers.First(p=>p.Id=="antigravity").History);
             var expected=ids.Sum(id=>id=="dsh"?350000L:100000L);
@@ -97,7 +97,7 @@ public sealed class V160Tests
     }
     [Fact] public void DominantUsesAbsoluteTokensWhileIntensityUsesPooledDailyTotals()
     {
-        var grid=UsageGrid.Build([History("codex",Day(200000),Day(900000,-1)),History("claude",Day(100000)),History("dsh",Day(350000))],Today);
+        var grid=UsageGrid.Build([History("codex",Day(200000),Day(900000,-1)),History("opencode-go",Day(100000)),History("dsh",Day(350000))],Today);
         var day=grid.Days[^1];Assert.Equal(650000,day.Total);Assert.Equal("dsh",day.Dominant!.ProviderId);Assert.Equal(900000,grid.SharedReference);
         var filtered=UsageGrid.Build([History("codex",Day(200000)),History("dsh",Day(350000))],Today,visible:["codex"]);
         Assert.Equal(200000,filtered.Days[^1].Total);Assert.Equal("codex",filtered.Days[^1].Dominant!.ProviderId);Assert.Equal(200000,filtered.SharedReference);
@@ -139,7 +139,7 @@ public sealed class V160Tests
     [Fact] public void LegacySettingsKeepValuesAndDefaultNewFieldsWithoutMigrationLoss()
     {
         var s=JsonSerializer.Deserialize<MonitorSettings>("{\"CodexEnabled\":false,\"HeatmapScale\":\"relative\",\"DshLowBalance\":12.345,\"ClaudeUserId\":\"unchanged\"}")!;
-        Assert.False(s.CodexEnabled);Assert.Equal("relative",s.HeatmapScale);Assert.Equal(12.345m,s.DshLowBalance);Assert.Equal("unchanged",s.ClaudeUserId);Assert.True(s.ShowCodex&&s.ShowClaude&&s.ShowDsh&&s.ShowAntigravity);Assert.True(s.AntigravityEnabled);
+        Assert.False(s.CodexEnabled);Assert.Equal("relative",s.HeatmapScale);Assert.Equal(12.345m,s.DshLowBalance);Assert.Equal(15,s.GoFiveHourLowPercent);Assert.True(s.ShowCodex&&s.ShowGo&&s.ShowDsh&&s.ShowAntigravity);Assert.True(s.AntigravityEnabled);
         s.ShowDsh=false;Assert.False(JsonSerializer.Deserialize<MonitorSettings>(JsonSerializer.Serialize(s))!.ShowDsh);
     }
 }

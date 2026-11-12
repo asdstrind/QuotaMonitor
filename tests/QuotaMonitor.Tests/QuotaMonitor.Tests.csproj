@@ -17,6 +17,7 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <Compile Include="../../src/QuotaMonitor/ViewModels/MonitorViewModel.cs" Link="MonitorViewModel.cs" />
+    <Compile Include="../../src/QuotaMonitor/Configuration/SettingsStore.cs" Link="SettingsStore.cs" />
     <ProjectReference Include="../../src/QuotaMonitor.Core/QuotaMonitor.Core.csproj" />
   </ItemGroup>
 

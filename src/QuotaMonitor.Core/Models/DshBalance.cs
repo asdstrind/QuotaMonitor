@@ -17,7 +17,12 @@ public sealed record DshBalanceReading(DshBalance? Balance, DshBalanceState Stat
 public static class DshBalancePresentation
 {
     // The source string is retained intact. Only compact presentation follows official UI rounding.
-    public static bool ValidAmount(string value) => value.Length is >0 and <=256 && Regex.IsMatch(value,@"^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$",RegexOptions.IgnoreCase|RegexOptions.CultureInvariant);
+    public static bool ValidAmount(string value)
+    {
+        if(value.Length is not (>0 and <=256))return false;
+        var match=Regex.Match(value,@"^-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:e([+-]?[0-9]+))?\z",RegexOptions.IgnoreCase|RegexOptions.CultureInvariant);
+        return match.Success&&(!match.Groups[1].Success||(int.TryParse(match.Groups[1].Value,NumberStyles.AllowLeadingSign,CultureInfo.InvariantCulture,out var exponent)&&Math.Abs((long)exponent)<=1000));
+    }
     public static string Wallet(WalletBalance wallet)
     {
         var symbol=wallet.Currency=="CNY"?"¥":"$";

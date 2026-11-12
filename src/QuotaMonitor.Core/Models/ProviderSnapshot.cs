@@ -2,7 +2,7 @@ namespace QuotaMonitor.Core.Models;
 
 public enum ConnectionStatus { Loading, Ready, Partial, Unavailable, Disabled, Stale }
 public enum MetricType { Quota, Balance, Tokens }
-public sealed record QuotaWindow(string Bucket, string Name, double UsedPercent, long? DurationMinutes, DateTimeOffset? ResetAt)
+public sealed record QuotaWindow(string Bucket, string Name, double UsedPercent, long? DurationMinutes, DateTimeOffset? ResetAt, string? ServerStatus = null)
 {
     public double RemainingPercent => Math.Clamp(100 - UsedPercent, 0, 100);
 }

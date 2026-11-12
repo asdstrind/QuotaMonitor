@@ -43,3 +43,16 @@ test('malformed wallet and thrown network errors fail safely',async()=>{
   const h=await harness();h.account.getBalance=async()=>({...ready(),value:[{currency:'CNY',balance:0}]});await h.run(0);assert.equal(h.messages.at(-1).state,'failed');
   h.account.getBalance=async()=>{throw new Error('synthetic network');};await h.run(30000);assert.equal(h.messages.at(-1).state,'failed');h.poller.dispose();
 });
+test('missing official API fails closed with a fixed diagnostic code',async()=>{
+ const {BalancePoller}=await import(pathToFileURL(path.resolve(__dirname,'../bridge/dsh-balance-bridge/lib/poller.js')).href);
+ for(const missing of ['getState','getBalance','watch']){
+  const messages=[],events=[];const account={getState(){},getBalance(){},watch(){}};delete account[missing];
+  const p=new BalancePoller(account,v=>messages.push(v),{diagnose:e=>events.push(e)});const dispose=p.start();
+  assert.deepEqual(events,['host-api-incompatible']);assert.equal(messages.at(-1).state,'unavailable');assert.equal(p.timer,undefined);dispose();
+ }
+});
+test('getState watchdog covers a hung official API without overlapping calls',async()=>{
+ const h=await harness();let settle;h.account.getState=()=>new Promise(resolve=>settle=resolve);
+ await h.run(0);await h.run(125000);assert.equal(h.messages.at(-1).state,'failed');assert.equal(h.poller.flight,true);
+ settle({status:'credential-stored'});await tick();assert.equal(h.calls(),0);h.poller.dispose();
+});

@@ -122,8 +122,9 @@
     </StackPanel>
    </Grid>
 
-   <!-- Day readout floats above everything inside the island; values lead, names follow. -->
-   <Canvas x:Name="Overlay" IsHitTestVisible="False">
+  </local:MorphLayoutHost>
+   <!-- Independent layout island: tooltip changes never remeasure the Morph content. -->
+   <local:TooltipOverlay x:Name="Overlay" IsHitTestVisible="False">
     <Border x:Name="TipCard" Visibility="Collapsed" DataContext="{Binding Tip}" Background="#17191D" BorderBrush="#33363D" BorderThickness="1" CornerRadius="10" Padding="11,8,12,9" MinWidth="210">
      <Border.Effect><DropShadowEffect Color="Black" BlurRadius="14" ShadowDepth="2" Opacity="0.6"/></Border.Effect>
      <StackPanel>
@@ -131,7 +132,7 @@
       <ItemsControl ItemsSource="{Binding Rows}" Focusable="False">
        <ItemsControl.ItemTemplate><DataTemplate>
         <Grid Margin="0,2,0,2">
-         <Grid.ColumnDefinitions><ColumnDefinition Width="15"/><ColumnDefinition Width="86"/><ColumnDefinition Width="Auto" MinWidth="58"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+         <Grid.ColumnDefinitions><ColumnDefinition Width="15"/><ColumnDefinition Width="120"/><ColumnDefinition Width="Auto" MinWidth="58"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
          <Border Width="9" Height="3" CornerRadius="1.5" Background="{Binding Accent}" VerticalAlignment="Center" HorizontalAlignment="Left"/>
          <TextBlock Grid.Column="1" Text="{Binding Name}" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
          <TextBlock Grid.Column="2" Text="{Binding Value}" Style="{StaticResource Readout}" FontSize="13.5" VerticalAlignment="Center"/>
@@ -150,8 +151,7 @@
       </TextBlock>
      </StackPanel>
     </Border>
-   </Canvas>
-  </local:MorphLayoutHost>
+   </local:TooltipOverlay>
  </Grid>
 </Window>
 

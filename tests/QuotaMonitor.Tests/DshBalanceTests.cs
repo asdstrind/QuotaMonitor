@@ -13,6 +13,12 @@ public class DshBalanceTests
     [InlineData("0.2.0-rc.2")]
     [InlineData("0.2.1-rc.1")]
     [InlineData("0.2.1-rc.2")]
+    [InlineData("0.2.1-rc.5")]
+    [InlineData("0.2.1-rc.6")]
+    [InlineData("0.2.2-rc.1")]
+    [InlineData("0.2.99")]
+    [InlineData("0.3.0")]
+    [InlineData("99.0.0")]
     public void TestedHostVersionsPreserveWalletsAndSource(string version)
     {
         var frame=Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(Frame()).Replace("0.2.0-rc.2",version));
@@ -20,9 +26,11 @@ public class DshBalanceTests
         Assert.Equal(DshBalanceState.Ready,reading.State);Assert.Equal(version,reading.Balance!.SourceVersion);
         Assert.Equal("123.123456789012345678901234567890123456",reading.Balance.NormalWallets[0].Balance);
     }
-    [Fact] public void UntestedHostVersionIsRejected()
+    [Fact] public void HostMetadataCannotChangeProtocolContract()
     {
         var frame=Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(Frame()).Replace("0.2.0-rc.2","0.3.0"));
+        Assert.Equal("0.3.0",DshBalanceReceiver.Parse(frame,DshBalanceReading.Empty,Now).Balance!.SourceVersion);
+        frame=Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(frame).Replace("\"protocol\":1","\"protocol\":2"));
         Assert.Throws<InvalidDataException>(()=>DshBalanceReceiver.Parse(frame,DshBalanceReading.Empty,Now));
     }
     private static readonly DateTimeOffset Now=DateTimeOffset.Parse("2026-10-10T10:00:00Z");

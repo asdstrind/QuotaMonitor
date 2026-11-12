@@ -140,4 +140,7 @@ public class UsageHeatmap : FrameworkElement
     }
     protected override void OnMouseLeave(MouseEventArgs e){base.OnMouseLeave(e);if(hovered is null)return;hovered=null;DrawHighlight();Hovered?.Invoke(this,new(null,Rect.Empty));}
     public GridDay? HoverDate(DateOnly date){hovered=Data?.Days.FirstOrDefault(d=>d.Date==date);DrawHighlight();Hovered?.Invoke(this,new(hovered,hovered is null?Rect.Empty:Tile(hovered)));return hovered;}
+    // A state/settings change can hide the card while the pointer stays on the same tile.
+    // Clear the cached hit too, so the next real move can re-enter that date normally.
+    internal void ResetHover(){if(hovered is null)return;hovered=null;DrawHighlight();}
 }

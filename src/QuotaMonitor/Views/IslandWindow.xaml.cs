@@ -36,6 +36,10 @@ public partial class IslandWindow : Window
     private readonly MorphMotion widthMotion=new(176),heightMotion=new(8),expansion=new(0),alertMotion=new(0);
     private readonly TranslateTransform compactTransform=new(),detailsTransform=new();
     private readonly ScaleTransform compactScale=new(1,1);
+    private readonly TranslateTransform tipTransform=new();
+    private GridDay? activeTipDay;
+    private Size tipSize;
+    private (Rect Tile,Rect Heatmap,Rect Clip,Size Size,double Radius,double Dpi)? tipGeometry;
     private IntPtr handle;
     private bool dragged,dragging,animating,fullscreenHidden,updatingFrame;
     private bool detailsReady;
@@ -43,6 +47,8 @@ public partial class IslandWindow : Window
     private TimeSpan lastRenderingTime;
     private double expandedHeight;
     private Point? down;
+    private Point? downScreen;
+    private double dragOriginLeft,dragOriginTop;
     private Rect? exitBounds;
     private IslandState exitState;
     internal bool VerificationSuspendsPointer { get; set; }
@@ -66,6 +72,8 @@ public partial class IslandWindow : Window
     {
         InitializeComponent();DataContext=vm;this.settings=settings;this.save=save;
         Compact.RenderTransform=compactTransform;Details.RenderTransform=detailsTransform;
+        TipCard.RenderTransform=tipTransform;
+        TipCard.SizeChanged+=(_,_)=>{if(activeTipDay is not null){tipSize=TipCard.RenderSize;PositionTip();}};
         CompactItems.LayoutTransform=compactScale;
         CompactItems.SizeChanged+=(_,_)=>
         {
@@ -168,7 +176,7 @@ public partial class IslandWindow : Window
     public void SetState(IslandState state,bool animate=true){exitBounds=null;interaction.Set(state);ApplyState(animate);}
     public void SetExpanded(bool value,bool animate=true)=>SetState(value?IslandState.Expanded:IslandState.Collapsed,animate);
     private void StartFrames(){if(animating)return;animating=true;lastRenderingTime=TimeSpan.Zero;CompositionTarget.Rendering+=MotionFrame;}
-    private void StopMotion(){CompositionTarget.Rendering-=MotionFrame;animating=false;}
+    private void StopMotion(){CompositionTarget.Rendering-=MotionFrame;animating=false;if(activeTipDay is not null)Dispatcher.BeginInvoke(DispatcherPriority.Loaded,new Action(PositionTip));}
     private IntPtr InputHook(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled)
     {
         if(message!=0x84||!IsVisible)return IntPtr.Zero;
@@ -187,6 +195,7 @@ public partial class IslandWindow : Window
         // One fixed center in physical space; no integer rounding of either moving edge.
         Island.Pose(new Rect((Width-w)/2,20*a,w,Math.Max(1,h)),a,alertMotion.Value*(1-a));
         ContentSurface.SetRenderClip(Island.ContentClip);
+        Overlay.SetRenderClip(Island.ContentClip);
         paintedWidth=widthMotion.Value;paintedHeight=heightMotion.Value;
         compactTransform.X=0;compactTransform.Y=20*a+1;
         detailsTransform.Y=20*a+1;
@@ -194,6 +203,7 @@ public partial class IslandWindow : Window
         Compact.Opacity=reveal;Compact.IsHitTestVisible=!IsExpanded&&reveal>.8;
         Minimal.Opacity=(1-a)*(1-alertMotion.Value);
         AlertStrip.Opacity=(1-a)*alertMotion.Value;
+        if(activeTipDay is not null)PositionTip();
     }
     private void MotionFrame(object? sender,EventArgs e)
     {
@@ -248,21 +258,40 @@ public partial class IslandWindow : Window
         if(e.OriginalSource is not DependencyObject source||FindParent<ButtonBase>(source) is not null)return;
         if(State!=IslandState.Collapsed&&!(IsExpanded&&FindParent<Grid>(source)==Strip||IsExpanded&&Strip.IsMouseOver))return;
         var point=e.GetPosition(this);if(!ShellContains(point))return;
-        down=point;dragged=false;CaptureMouse();
+        down=point;downScreen=PointToScreen(point);NativeWindow.GetWindowRect(handle,out var bounds);var scale=NativeWindow.Scale(handle);dragOriginLeft=bounds.Left+(bounds.Right-bounds.Left-CollapsedWidth*scale)/2;dragOriginTop=bounds.Top;dragged=false;CaptureMouse();
     }
-    private void HeaderCaptureLost(object sender,MouseEventArgs e){if(!dragging)down=null;}
+    private void HeaderCaptureLost(object sender,MouseEventArgs e)
+    {
+        if(dragging){dragging=false;if(!settings.TopCenter)SaveFreeDock();}
+        down=null;downScreen=null;
+    }
+    private void SaveFreeDock()
+    {
+        NativeWindow.GetWindowRect(handle,out var rect);var scale=NativeWindow.Scale(handle);
+        settings.Left=rect.Left+(rect.Right-rect.Left-CollapsedWidth*scale)/2;settings.Top=rect.Top;save();
+    }
     private void HeaderMove(object sender,MouseEventArgs e)
     {
         if(down is not {} point||e.LeftButton!=MouseButtonState.Pressed)return;
-        var current=e.GetPosition(this);if(Math.Abs(current.X-point.X)+Math.Abs(current.Y-point.Y)<6)return;
-        dragged=true;down=null;
-        dragging=true;ReleaseMouseCapture();
-        try{DragMove();settings.TopCenter=false;NativeWindow.GetWindowRect(handle,out var rect);var scale=NativeWindow.Scale(handle);settings.Left=rect.Left+(rect.Right-rect.Left-CollapsedWidth*scale)/2;settings.Top=rect.Top;Reposition();save();}catch(InvalidOperationException){}finally{dragging=false;}
+        HeaderDragTo(point,e.GetPosition(this));
+    }
+    // Captured pointer movement uses physical screen deltas; it never enters the OS modal
+    // DragMove loop, so rapid input and DPI-scaled windows retain the full gesture.
+    internal bool HeaderDragTo(Point from,Point to)
+    {
+        // Reject before changing drag state, coordinates or the user's centering preference.
+        if(settings.TopCenter||downScreen is not {} origin)return false;
+        var current=PointToScreen(to);var dx=current.X-origin.X;var dy=current.Y-origin.Y;
+        if(!dragging&&(Math.Abs(dx)+Math.Abs(dy))/NativeWindow.Scale(handle)<6)return false;
+        dragged=true;dragging=true;
+        settings.Left=dragOriginLeft+dx;settings.Top=dragOriginTop+dy;
+        Reposition();return true;
     }
     private void HeaderUp(object sender,MouseButtonEventArgs e)
     {
         if(down is null)return;
-        var click=!dragged&&ShellContains(e.GetPosition(this));down=null;ReleaseMouseCapture();
+        var click=!dragged&&ShellContains(e.GetPosition(this));var moved=dragging;dragging=false;down=null;downScreen=null;ReleaseMouseCapture();
+        if(moved&&!settings.TopCenter)SaveFreeDock();
         if(click&&interaction.Click()){exitBounds=null;ApplyState();e.Handled=true;}
     }
     private static T? FindParent<T>(DependencyObject? node) where T:DependencyObject{while(node is not null){if(node is T match)return match;node=node is Visual or System.Windows.Media.Media3D.Visual3D?VisualTreeHelper.GetParent(node):LogicalTreeHelper.GetParent(node);}return null;}
@@ -272,15 +301,55 @@ public partial class IslandWindow : Window
     {
         Vm.ShowTip(e.Day);
         if(e.Day is null||!IsExpanded){HideTip();return;}
-        TipCard.Visibility=Visibility.Visible;
+        if(activeTipDay is null)Overlay.LayoutUpdated+=TipLayoutUpdated;
+        activeTipDay=e.Day;tipGeometry=null;
+        // Hidden still measures. Never render a stale size while bindings/containers update.
+        TipCard.Visibility=Visibility.Hidden;
         TipCard.Measure(new Size(double.PositiveInfinity,double.PositiveInfinity));
-        var size=TipCard.DesiredSize;
-        var tile=Heatmap.TransformToVisual(Overlay).TransformBounds(e.Tile);
-        var x=Math.Clamp(tile.Left+tile.Width/2-size.Width/2,10,Math.Max(10,Overlay.ActualWidth-size.Width-10));
-        var y=tile.Top-size.Height-6;if(y<10)y=tile.Bottom+6;
-        Canvas.SetLeft(TipCard,x);Canvas.SetTop(TipCard,y);
+        tipSize=TipCard.DesiredSize;
+        PositionTip();
     }
-    private void HideTip(){TipCard.Visibility=Visibility.Collapsed;}
+    private void TipLayoutUpdated(object? sender,EventArgs e)
+    {
+        if(activeTipDay is null)return;
+        // ItemsControl bindings may realize rows after the initial infinite measure. Even
+        // when the final size equals the previous hover, SizeChanged will not fire again.
+        if(TipCard.IsMeasureValid&&TipCard.IsArrangeValid&&TipCard.RenderSize.Width>0)tipSize=TipCard.RenderSize;
+        PositionTip();
+    }
+    private void PositionTip()
+    {
+        // A tooltip requested while the shell is still moving would be clipped by the
+        // intermediate ContentClip. Keep it hidden; StopMotion repositions and reveals it
+        // against the final geometry instead of flashing a partial card.
+        if(animating){TipCard.Visibility=Visibility.Hidden;return;}
+        if(activeTipDay is not {} day||tipSize.Width<=0||tipSize.Height<=0)return;
+        static TipRect Box(Rect r)=>new(r.X,r.Y,r.Width,r.Height);
+        var transform=Heatmap.TransformToVisual(Overlay);
+        var tile=transform.TransformBounds(Heatmap.Tile(day));
+        // Protect the hover/today stroke too, rather than just the square's fill.
+        tile.Inflate(3,3);
+        var heatmap=transform.TransformBounds(new Rect(0,UsageHeatmap.MonthBand,Heatmap.ActualWidth,Heatmap.ActualHeight-UsageHeatmap.MonthBand));
+        var clip=Island.TransformToVisual(Overlay).TransformBounds(Island.ContentClip.Bounds);
+        clip.Intersect(new Rect(Overlay.RenderSize));
+        var dpi=VisualTreeHelper.GetDpi(this).DpiScaleX;
+        var radius=new[]{Island.CornerRadius.TopLeft,Island.CornerRadius.TopRight,Island.CornerRadius.BottomLeft,Island.CornerRadius.BottomRight}.Max();
+        // A moved/DPI-changed window can settle the detail layout after the hover callback.
+        // Observe final geometry without requesting layout. RenderTransform cannot retrigger
+        // Measure/Arrange, and unchanged geometry performs no placement or visibility writes.
+        var geometry=(tile,heatmap,clip,tipSize,radius,dpi);
+        if(tipGeometry==geometry)return;
+        tipGeometry=geometry;
+        var safe=TooltipPlacement.SafeBounds(Box(clip),radius,dpi);
+        // Reserve the existing effect's whole footprint, without changing its appearance.
+        var shadow=(System.Windows.Media.Effects.DropShadowEffect)TipCard.Effect;
+        var halo=shadow.BlurRadius+shadow.ShadowDepth;
+        var placement=TooltipPlacement.Place(safe,tipSize.Width+2*halo,tipSize.Height+2*halo,Box(tile),Box(heatmap),1/dpi);
+        if(placement is not {} p){TipCard.Visibility=Visibility.Hidden;return;}
+        tipTransform.X=p.X+halo;tipTransform.Y=p.Y+halo;
+        TipCard.Visibility=Visibility.Visible;
+    }
+    private void HideTip(){Overlay.LayoutUpdated-=TipLayoutUpdated;activeTipDay=null;tipGeometry=null;TipCard.Visibility=Visibility.Collapsed;Heatmap.ResetHover();}
     private void LaneEnter(object sender,MouseEventArgs e){if(sender is FrameworkElement{Tag:string id})Vm.HoverLane=id;}
     private void LaneLeave(object sender,MouseEventArgs e){Vm.HoverLane=null;}
     private void LaneClick(object sender,MouseButtonEventArgs e){if(sender is FrameworkElement{Tag:string id})Vm.TogglePinnedLane(id);e.Handled=true;}

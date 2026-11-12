@@ -11,13 +11,6 @@ namespace QuotaMonitor.Tests;
 public sealed class AdapterTests
 {
     private static JsonElement Json(string text){using var doc=JsonDocument.Parse(text);return doc.RootElement.Clone();}
-    [Theory]
-    [InlineData(2500000,500000,5)]
-    [InlineData(1,500000,0.000002)]
-    [InlineData(100,1000,0.1)]
-    [InlineData(0,500000,0)]
-    public void QuotaConversionPreservesSmallAmounts(decimal quota,decimal ratio,decimal expected)=>Assert.Equal(expected,ClaudeCNAdapter.ToUsd(quota,ratio));
-    [Fact]public void InvalidRatioRejected()=>Assert.Throws<ArgumentOutOfRangeException>(()=>ClaudeCNAdapter.ToUsd(1,0));
     [Fact]public void CodexUsesMultipleDynamicWindowsAndClampsRemaining()
     {
         var result=CodexAdapter.Parse(Json("""{"rateLimits":{"primary":{"usedPercent":1}},"rateLimitsByLimitId":{"other":{"primary":{"usedPercent":-5,"windowDurationMins":15}},"codex":{"primary":{"usedPercent":135,"windowDurationMins":300,"resetsAt":1791604039},"secondary":{"usedPercent":27,"windowDurationMins":10080}}}}"""),DateTimeOffset.UtcNow);
@@ -25,8 +18,6 @@ public sealed class AdapterTests
     }
     [Fact]public void MissingCodexWindowsAreUnavailableInsteadOfZero(){var result=CodexAdapter.Parse(Json("""{"rateLimits":{"primary":null,"secondary":null}}"""),DateTimeOffset.UtcNow);Assert.Equal(ConnectionStatus.Unavailable,result.ConnectionStatus);Assert.Null(result.RemainingPercent);}
     [Fact]public void LegacyCodexWindowKeepsUnknownDuration(){var result=CodexAdapter.Parse(Json("""{"rateLimits":{"primary":{"usedPercent":25}}}"""),DateTimeOffset.UtcNow);Assert.Equal(75,result.RemainingPercent);Assert.Null(result.Windows.Single().DurationMinutes);}
-    [Fact]public void ClaudeLogsExcludeRechargesAndPreserveMissingTokens(){var logs=ClaudeCNAdapter.ParseLogs(Json("""{"items":[{"type":1,"quota":100,"model_name":"recharge"},{"type":2,"quota":1,"model_name":"claude-real","prompt_tokens":123,"other":"{\"billing_source\":\"subscription\"}"}]}"""),500000);var item=Assert.Single(logs);Assert.Equal("claude-real",item.Model);Assert.Equal(0.000002m,item.UsageCost);Assert.Null(item.OutputTokens);Assert.Equal("subscription",item.BillingSource);}
-    [Fact]public void UnknownClaudeLogShapeIsDiagnosed()=>Assert.Throws<ProviderException>(()=>ClaudeCNAdapter.ParseLogs(Json("{}"),500000));
     [Fact]public void CodexReadGuardBlocksWritesWithoutChangingBytes()
     {
         var directory=Path.Combine(Path.GetTempPath(),"quota-guard-"+Guid.NewGuid());Directory.CreateDirectory(directory);var file=Path.Combine(directory,"config.toml");File.WriteAllText(file,"non-secret-test");try{using(var guard=new CodexReadGuard(directory)){Assert.Throws<IOException>(()=>File.WriteAllText(file,"changed"));Assert.Equal("non-secret-test",File.ReadAllText(file));}File.WriteAllText(file,"released");Assert.Equal("released",File.ReadAllText(file));}finally{Directory.Delete(directory,true);}
@@ -51,29 +42,6 @@ public sealed class AdapterTests
     {
         DshUsage[] usage=[new(100,10,1000,0,DateTimeOffset.UtcNow,"m")];var settings=new MonitorSettings{DshPricedModel=""};Assert.Null(DshAdapter.Estimate(usage,settings));settings.DshPricedModel="m";settings.DshPriceBasis="explicit verified tariff";settings.DshInputPerMillion=1;settings.DshCacheReadPerMillion=0.1m;settings.DshCacheWritePerMillion=1;settings.DshOutputPerMillion=2;Assert.Equal(0.00022m,DshAdapter.Estimate(usage,settings));settings.DshPricedModel="wrong";Assert.Null(DshAdapter.Estimate(usage,settings));
     }
-    [Fact]public async Task ClaudeRequestsUseCorrectAuthAndSubscriptionAmounts()
-    {
-        var handler=new FakeHttp(request=>{
-            Assert.Equal("https",request.RequestUri!.Scheme);Assert.Equal("claudecn.top",request.RequestUri.Host);Assert.Equal("Bearer",request.Headers.Authorization!.Scheme);Assert.Equal("test-only",request.Headers.Authorization.Parameter);Assert.Equal("42",request.Headers.GetValues("New-Api-User").Single());
-            var data=request.RequestUri.AbsolutePath switch{"/api/user/self"=>"""{"quota":2499999,"used_quota":1,"billing_preference":"subscription_first"}""","/api/log/self/stat"=>"""{"quota":1,"total_requests":1,"total_tokens":900}""",_=>"{\"items\":[]}"};
-            if(request.RequestUri.AbsolutePath.EndsWith("stat")){Assert.Contains("start_timestamp=",request.RequestUri.Query);Assert.Contains("end_timestamp=",request.RequestUri.Query);Assert.Contains("type=2",request.RequestUri.Query);}
-            return Response("{\"success\":true,\"data\":"+data+"}");});
-        using var http=new HttpClient(handler);var settings=new MonitorSettings{ClaudeUserId="42"};var adapter=new ClaudeCNAdapter(http,settings,new TestSecret());var result=await adapter.RefreshAsync(true,CancellationToken.None);
-        Assert.Equal(4.999998m,result.RemainingBalance);Assert.Equal(0.000002m,result.TodayCost);Assert.Equal(900,result.TodayTokens);Assert.Equal("subscription_first",result.BillingPreference);Assert.Contains("不等同",result.Note);Assert.Equal(ConnectionStatus.Ready,result.ConnectionStatus);
-    }
-    [Fact]public async Task ClaudeStatFailurePreservesRealBalanceAndReportsPartial()
-    {
-        using var http=new HttpClient(new FakeHttp(request=>request.RequestUri!.AbsolutePath switch{"/api/user/self"=>Response("""{"success":true,"data":{"quota":500000}}"""),"/api/log/self/stat"=>new(HttpStatusCode.Forbidden),_=>Response("""{"success":true,"data":{"items":[]}}""")}));
-        var result=await new ClaudeCNAdapter(http,new(){ClaudeUserId="42"},new TestSecret()).RefreshAsync(true,CancellationToken.None);Assert.Equal(1,result.RemainingBalance);Assert.Null(result.TodayCost);Assert.Null(result.TotalCost);Assert.Equal(ConnectionStatus.Partial,result.ConnectionStatus);Assert.Contains("HTTP 403",result.ErrorMessage);
-    }
-    [Fact]public async Task ClaudeApiErrorNeverEchoesSecretResponseBody()
-    {
-        using var http=new HttpClient(new FakeHttp(_=>Response("""{"success":false,"message":"test-only secret token account"}""")));var ex=await Assert.ThrowsAsync<ProviderException>(()=>new ClaudeCNAdapter(http,new(){ClaudeUserId="42"},new TestSecret()).RefreshAsync(true,CancellationToken.None));Assert.DoesNotContain("secret token",ex.Message);
-    }
-    [Fact]public async Task MissingCredentialProducesUnavailableWithoutNetwork()
-    {
-        using var http=new HttpClient(new FakeHttp(_=>throw new Exception("Must not call")));var result=await new ClaudeCNAdapter(http,new(),new EmptySecret()).RefreshAsync(true,CancellationToken.None);Assert.Equal(ConnectionStatus.Unavailable,result.ConnectionStatus);Assert.Null(result.RemainingBalance);
-    }
     [Fact]public async Task RefreshFailureIsIsolatedAndDisposalCancelsWork()
     {
         await using var coordinator=new RefreshCoordinator(new(),[new FakeAdapter("codex",true),new FakeAdapter("dsh",false)]);await coordinator.RefreshAsync(true);Assert.Equal(ConnectionStatus.Unavailable,coordinator.Snapshots.Single(x=>x.ProviderId=="codex").ConnectionStatus);Assert.Equal(ConnectionStatus.Ready,coordinator.Snapshots.Single(x=>x.ProviderId=="dsh").ConnectionStatus);
@@ -81,12 +49,6 @@ public sealed class AdapterTests
     [Fact]public async Task DshChoosesHighestGenerationAndRefreshIsIdempotent()
     {
         var directory=Path.Combine(Path.GetTempPath(),"quota-generation-"+Guid.NewGuid());Directory.CreateDirectory(directory);try{File.WriteAllText(Path.Combine(directory,"session.jsonl"),Rows(new{type="session",version=0,id="same-session"},Context(),Message(2,1000,500)));File.WriteAllText(Path.Combine(directory,"session.v4.jsonl"),Rows(Header("same-session"),Context(),Message(2,100,50)));var adapter=new DshAdapter(new(){DshSessionRoot=directory});var first=await adapter.RefreshAsync(true,CancellationToken.None);var second=await adapter.RefreshAsync(true,CancellationToken.None);Assert.Equal(150,first.TotalTokens);Assert.Equal(first.TotalTokens,second.TotalTokens);}finally{Directory.Delete(directory,true);}
-    }
-    [Fact]public async Task ClaudeCacheRespectsMidnightAndConversionChanges()
-    {
-        var calls=0;var time=new ManualTime(new DateTimeOffset(2026,10,10,12,0,0,TimeSpan.FromHours(8)));
-        using var http=new HttpClient(new FakeHttp(r=>{calls++;return Response(r.RequestUri!.AbsolutePath switch{"/api/user/self"=>"""{"success":true,"data":{"quota":500000,"used_quota":2}}""","/api/log/self/stat"=>"""{"success":true,"data":{"quota":2,"total_tokens":6,"total_requests":1}}""",_=>"""{"success":true,"data":{"items":[]}}"""});}));
-        var settings=new MonitorSettings{ClaudeUserId="42"};var adapter=new ClaudeCNAdapter(http,settings,new TestSecret(),time);await adapter.RefreshAsync(false,CancellationToken.None);Assert.Equal(3,calls);time.Now=time.Now.AddSeconds(180);await adapter.RefreshAsync(false,CancellationToken.None);Assert.Equal(4,calls);settings.QuotaPerUsd=1000000;var changed=await adapter.RefreshAsync(false,CancellationToken.None);Assert.Equal(7,calls);Assert.Equal(0.000002m,changed.TodayCost);time.Now=time.Now.AddDays(1);await adapter.RefreshAsync(false,CancellationToken.None);Assert.Equal(10,calls);
     }
     [Fact]public async Task CoordinatorCancelsInFlightAdapterOnExit()
     {

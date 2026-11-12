@@ -1,46 +1,48 @@
-# DSH Balance Bridge 1.2
+# DSH Balance Bridge 1.3.0
 
-目标宿主：官方 Windows Desktop 0.2.0-rc.2、0.2.1-rc.1、0.2.1-rc.2 / Cordis 4.0.4–4.0.5。兼容宿主提供 peerDependencies；源码位于 lib/ 与 cordis.patch.yml，无需编译或安装脚本。精确列出已核对的版本，不授予不兼容插件豁免。
+QuotaMonitor v1.6.5 的 Host 兼容修复，通信仍为 Protocol 1，UI 不变。
 
-## 安装与更新
+## 安装与升级
 
-先在 DSH 自身完成官方账号登录，再从本仓库根目录使用兼容的官方 CLI：
+已链接到本目录的安装只需更新源码，并在无运行任务时正常退出、重启 DSH；不用反复改版本或重装整个 Profile。复制安装可通过官方插件管理器更新。首次安装使用官方 CLI：
 
 ```powershell
 $bridgeSource = (Resolve-Path ./bridge/dsh-balance-bridge).Path
 dsh plugin --profile desktop add $bridgeSource --ignore-scripts
 ```
 
-已有源码链接安装只需更新源码，在没有运行任务时正常退出并重启 DSH。复制安装应通过官方插件管理器更新至 1.2.0。CLI 不在 PATH 时使用自己的官方安装位置。不要修改认证配置。
+官方 Host 提供 peers；保留官方的 `autoInstallPeers: false`。不要在插件目录额外 npm install Host 包，也不要为升级重置其他插件。修改 Profile 前备份，且只修改本插件项。
 
-## 后台查询
+## Host 与协议的独立边界
 
-Host 中的现有 Bridge 注入 deepseekAccount，启动后立即调用官方 getState() / getBalance(client)，成功后每 3 分钟查询一次。不依赖 Slot、客户端挂载、余额页面或 UI 刷新，不建立第二套认证或 HTTP 查询。client 仅含由官方 getDshRuntimeVersion() 提供的实际宿主版本、系统 locale 与时区偏移。协议 1 的 sourceVersion 同样反映真实 Host；v1.6.4 接收器接受上述三个版本。
+`engines.dsh: >=0.2.0-rc.2 <0.3.0-0` 是 Host 加载边界，含同一 0.2 分支的 rc 和 patch，排除 0.3 的全部预发布及更高版本。rc.5 的实际 `evaluatePluginCompatibility()` 优先使用 engines.dsh，并以 `includePrerelease: true` 计算范围；没有 engines 才逐个检查 DSH peers。没有设置兼容豁免。
 
-插件不读取凭据存储、不获取 Token、不调用登录/退出。官方服务负责钱包解析、请求超时和账号生命周期。HTTP 202 只有在官方服务返回完整 ready 钱包时才接受；空响应、未完成或错误响应按失败处理，不当作零余额。官方服务遇到真实 401/40003 时仍按既有逻辑使登录过期；插件不绕过该逻辑，也不反复查询退出账号。
+必需 peers 只有 Cordis `~4.0.4`、dsh-app-boot（获取真实 Host 版本）、dsh-credentials（只构造账户事件 key，不读取凭据）。后两者的范围为 `>=0.2.0-rc.2 <0.3.0-0 || >=0.2.1-0 <0.3.0-0`；第二个子范围为普通包管理器的预发布规则锚定 0.2.1，覆盖任意后续 rc，而非列举 rc。Host 自身 includePrerelease 覆盖未来 0.2 patch 的预发布；普通 npm 的默认规则并不相同，因此不应自动安装 Host peers。rc.5 的链接插件解析器还会根据 peer **名称**选择 Host 安装包，不能删掉实际导入的 peer。
 
-每个插件实例只有一个在途请求。插件 watchdog 为 125 秒，覆盖官方允许的最长 120 秒查询。watchdog 后仍等待官方 promise 结束，避免启动重叠且无法取消的请求；若服务永久不结束，维持 Stale，直到 Host 重启。失败退避为 30、60、120、240、480、900 秒，成功后恢复 3 分钟。
+不再依赖 Typert，也不再注册 renderer `publish` Remote 或客户端 Slot 监听：后台查询直接使用注入的官方账户服务。缺少服务或缺少 getState/getBalance/watch 时安全不可用，不能退回到页面提交任意余额。
 
-监听官方账号状态及对应 credentials/record-updated 事件，事件仅携带记录 key，不读取记录。变更时立即清空旧余额并递增内存代次，忽略旧请求结果。Host 启动也清空无法归属的旧账号缓存。Host/账号服务卸载时释放定时器和订阅，迟到结果不能发布。
+Protocol 1 才是余额数据契约：protocol 必须为整数 1；sourceVersion 仅作有长度和格式约束的诊断元数据，接收端不再列举 Host 版本。未知/重复字段、矛盾状态、非法钱包、过大帧、无效/未来/倒序时间戳都会被拒绝。金额保持原始十进制字符串，最多 256 字符，指数绝对值最多 1000；不转浮点、不跨币种求和。失败不是零余额。协议若发生不兼容变更，需要明确迁移，不能靠放宽 Host 范围接收。
 
-## IPC 与余额保留
+## 后台与安全
 
-官方 Host → 现有当前用户 Named Pipe → QuotaMonitor。协议 1 白名单只包含版本、状态、queryStatus、观察时间、普通/赠送钱包币种与金额字符串；不传账号身份、Token、认证头或配置。新增 stale 消息带最近成功钱包，监控器在查询失败期间重启也能收到旧值及 Stale。旧客户端 Remote 保留兼容，但 Host 启用后台查询后拒绝客户端覆盖。
+启动立即调用 deepseekAccount.getState()/getBalance(client)，成功后每 180000ms 查询，跟页面及窗口显示无关。失败退避 30、60、120、240、480、900 秒。125 秒 watchdog 覆盖状态及余额调用；仍保持单请求，无法取消的官方 Promise 永久不结束时必须等待 Host 重启。
 
-接收端继续使用 CurrentUserOnly、FirstPipeInstance、16 KiB 帧上限、3 秒半帧超时。管道重连退避 1–30 秒。超过 4 分钟为 Stale。失败不更新时间、不伪造零；退出或换号清空钱包。充值与赠金分别显示，原金额字符串保留，不跨币种求和。
+账户事件只比较官方 credentialKey，不读取记录；换号/退出立即清空旧钱包并使在途请求失效。Host 启动先清除无法归属的缓存；官方服务卸载/查询失败保留最近有效钱包为 Stale。watch API 失败时清除无法再验证账户归属的钱包并停止该 poller。Host 完全退出后管道断开，接收端立即 Stale；Host 重启后管道 1–30 秒退避自动重连。四分钟无新快照也为 Stale。
 
-个人快照文件只留在本机应用数据目录，不能提交仓库。
+Named Pipe 保持 CurrentUserOnly、FirstPipeInstance、16 KiB 上限、三秒半帧超时。该边界拒绝其他/匿名 Windows 身份，**不认证同一用户下的任意进程是官方 DSH**；同用户恶意软件和管道抢占不在当前信任模型之外另作承诺。
 
-## GUI 与 Host 生命周期
+不读取私有认证文件、Cookie 或 Token，不直连私有账户 API，不修改 Host 源码。日志只有固定事件码：Host 日志的 `[QuotaMonitor Bridge] plugin-loaded / host-api-* / ipc-*` 和 `%LOCALAPPDATA%/QuotaMonitor/dsh-bridge.log` 的 `receiver-protocol-rejected / receiver-frame-rejected / ipc-*`，不包含钱包、账户标识、原始帧或异常文本。接收日志上限约 64 KiB；不新增 UI 面板。
 
-本插件不另行启动 Host。只要官方 Host 运行，窗口隐藏和停留聊天页都不影响查询。Desktop Host 由 GUI 主进程父子 IPC 管理，父进程断开会 shutdown。兼容版本 CLI 明确拒绝启动 desktop profile（由 Electron 独占管理）；彻底退出 DSH 后不能继续查询，QuotaMonitor 保留最近有效余额并显示 Stale（从未成功则 Unavailable）。不通过复制认证服务、抓取凭据或私有接口绕过。重启后立即查询。
-
-## 验证
+## 测试边界
 
 ```powershell
 node --test tools/test-dsh-bridge.cjs tools/test-dsh-background.cjs
+$env:DSH_TEST_RUNTIME = '<官方运行时 node_modules>'
+node --test tools/test-dsh-compatibility.mjs
+node tools/test-dsh-cordis.mjs
+node tools/test-dsh-official-outcomes.mjs
 ```
 
-离线测试使用合成钱包。test-dsh-cordis.mjs 使用兼容安装运行时验证隔离服务，不加载生产账号；运行条件见 [BUILDING.md](../../BUILDING.md)。隔离测试覆盖调度、失败退避、超时、账号切换及陈旧状态；不把模拟测试当作真实账号或真实断网验证。
+compatibility 测试使用真实 Host 检查器，但替换版本参数只证明范围不拦截，不能证明历史或未来 Host 的 API 正常。Cordis/官方 outcomes 测试使用真实安装代码与合成服务/请求，不加载生产 Profile。rc.6 等尚未发布版本仅为合成版本场景；0.2 分支若破坏 API，仍可能需要适配。详细本次实际验证见本地验收报告。
 
-官方接口说明：[DeepSeek Harness account service](https://deepseek-harness.github.io/deepseek-harness/en/reference/subsystems/credentials)。
+官方参考：[账户服务](https://deepseek-harness.github.io/deepseek-harness/en/reference/subsystems/credentials)。

@@ -10,7 +10,7 @@ public sealed class IslandTests
     private static readonly DateTimeOffset Now=new(2026,10,11,8,0,0,TimeSpan.Zero);
     private static readonly MonitorSettings Settings=new();
     private static ProviderSnapshot Codex=>new(){ProviderId="codex",DisplayName="Codex",ConnectionStatus=ConnectionStatus.Ready,LastUpdated=Now,Windows=[new("codex","Primary",90,300,Now.AddHours(1)),new("codex","Secondary",90,10080,Now.AddDays(1))]};
-    private static ProviderSnapshot Claude=>new(){ProviderId="claude",DisplayName="Claude",ConnectionStatus=ConnectionStatus.Ready,LastUpdated=Now,RemainingBalance=4,Currency="USD"};
+    private static ProviderSnapshot Go=>new(){ProviderId="opencode-go",DisplayName="OpenCode Go",ConnectionStatus=ConnectionStatus.Ready,LastUpdated=Now,Windows=[new("rolling","5 小时",90,300,Now.AddHours(2))]};
     private static ProviderSnapshot Dsh(string amount="4",DshBalanceState state=DshBalanceState.Ready,DateTimeOffset? at=null)=>new(){ProviderId="dsh",DisplayName="DSH",ConnectionStatus=ConnectionStatus.Partial,AccountBalance=new(new([new("CNY",amount)],[new("CNY","100")],at??Now,"test"),state,null)};
     private static IReadOnlyList<LowQuotaAlert> Alert(ProviderSnapshot snapshot,MonitorSettings? settings=null)=>LowQuotaAlerts.Evaluate([snapshot],settings??Settings,Now);
 
@@ -53,17 +53,17 @@ public sealed class IslandTests
         Assert.True(s.Pointer(false,TimeSpan.FromMilliseconds(101900)));Assert.Equal(IslandState.Minimal,s.State);
         Assert.False(s.Click()); // No intermediate Collapsed state on exit.
     }
-    [Fact]public void AllFourAlertsKeepTheirIndependentKeys()=>Assert.Equal(new[]{"codex-5h","codex-week","claude","dsh"},LowQuotaAlerts.Evaluate([Codex,Claude,Dsh()],Settings,Now).Select(a=>a.Key));
+    [Fact]public void AllFourAlertsKeepTheirIndependentKeys()=>Assert.Equal(new[]{"codex-5h","codex-week","go-5h","dsh"},LowQuotaAlerts.Evaluate([Codex,Go,Dsh()],Settings,Now).Select(a=>a.Key));
     [Theory][InlineData(ConnectionStatus.Loading)][InlineData(ConnectionStatus.Disabled)][InlineData(ConnectionStatus.Unavailable)]
-    public void NonReadyProvidersCannotAlert(ConnectionStatus status){Assert.Empty(Alert(Codex with{ConnectionStatus=status}));Assert.Empty(Alert(Claude with{ConnectionStatus=status}));}
+    public void NonReadyProvidersCannotAlert(ConnectionStatus status){Assert.Empty(Alert(Codex with{ConnectionStatus=status}));Assert.Empty(Alert(Go with{ConnectionStatus=status}));}
     [Fact]public void UnknownStaleFutureAndEstimatedNeverBecomeLow()
     {
-        foreach(var p in new[]{Codex,Claude})
+        foreach(var p in new[]{Codex,Go})
         {
             Assert.Empty(Alert(p with{LastUpdated=null}));Assert.Empty(Alert(p with{LastUpdated=Now.AddMinutes(-8)}));
             Assert.Empty(Alert(p with{LastUpdated=Now.AddMinutes(1)}));Assert.Empty(Alert(p with{IsEstimated=true}));Assert.Empty(Alert(p with{NeedsSetup=true}));
         }
-        Assert.Empty(Alert(Claude with{RemainingBalance=null}));Assert.Empty(Alert(Codex with{Windows=[]}));
+        Assert.Empty(Alert(Go with{Windows=[]}));Assert.Empty(Alert(Codex with{Windows=[]}));
         Assert.Empty(Alert(Dsh(state:DshBalanceState.Stale)));Assert.Empty(Alert(Dsh(state:DshBalanceState.Unavailable)));
         Assert.Empty(Alert(Dsh(at:Now.AddMinutes(-5))));Assert.Empty(Alert(Dsh(at:Now.AddMinutes(1))));Assert.Empty(Alert(Dsh() with{AccountBalance=DshBalanceReading.Empty}));
     }
@@ -74,10 +74,10 @@ public sealed class IslandTests
     }
     [Fact]public void ThresholdIsStrictAndZeroDisables()
     {
-        Assert.Empty(Alert(Claude with{RemainingBalance=5}));Assert.Empty(Alert(Dsh("5")));
+        Assert.Empty(Alert(Go with{Windows=[new("rolling","5 小时",85,300,Now.AddHours(2))]}));Assert.Empty(Alert(Dsh("5")));
         Assert.Empty(Alert(Codex with{Windows=Codex.Windows.Select(w=>w with{UsedPercent=85}).ToArray()}));
-        Assert.Empty(LowQuotaAlerts.Evaluate([Codex,Claude,Dsh()],new(){CodexFiveHourLowPercent=0,CodexWeeklyLowPercent=0,ClaudeLowBalanceUsd=0,DshLowBalance=0},Now));
-        Assert.Empty(LowQuotaAlerts.Evaluate([Codex,Claude,Dsh()],new(){CodexEnabled=false,ClaudeEnabled=false,DshEnabled=false},Now));
+        Assert.Empty(LowQuotaAlerts.Evaluate([Codex,Go,Dsh()],new(){CodexFiveHourLowPercent=0,CodexWeeklyLowPercent=0,GoFiveHourLowPercent=0,DshLowBalance=0},Now));
+        Assert.Empty(LowQuotaAlerts.Evaluate([Codex,Go,Dsh()],new(){CodexEnabled=false,GoEnabled=false,DshEnabled=false},Now));
     }
     [Fact]public void SelectedBucketMissingDurationsAndExpiredWindowsAreSafe()
     {
@@ -94,16 +94,16 @@ public sealed class IslandTests
         var p=Dsh() with{AccountBalance=new(new([new("USD","1")],[],Now,"test"),DshBalanceState.Ready,null)};
         Assert.Empty(Alert(p));Assert.Single(Alert(p,new(){DshAlertCurrency="USD"}));
         Assert.Empty(Alert(p with{AccountBalance=new(new([],[],Now,"test"),DshBalanceState.Ready,null)}));
-        Assert.Empty(Alert(Claude with{Currency="CNY"}));
+        
         Assert.Empty(Alert(p with{AccountBalance=new(new([new("CNY","3"),new("CNY","2")],[],Now,"test"),DshBalanceState.Ready,null)}));
     }
     [Fact]public void OldSettingsMigrateDefaultsAndNewSettingsRoundtrip()
     {
         var old=JsonSerializer.Deserialize<MonitorSettings>("{\"TopCenter\":false,\"HeatmapScale\":\"relative\"}")!;
         Assert.Equal(15,old.CodexFiveHourLowPercent);Assert.Equal(5,old.DshLowBalance);Assert.Equal("relative",old.HeatmapScale);
-        old.CodexFiveHourLowPercent=22;old.CodexWeeklyLowPercent=7;old.ClaudeLowBalanceUsd=2.5m;old.DshLowBalance=1.2m;old.DshAlertCurrency="USD";
+        old.CodexFiveHourLowPercent=22;old.CodexWeeklyLowPercent=7;old.GoFiveHourLowPercent=2.5;old.DshLowBalance=1.2m;old.DshAlertCurrency="USD";
         var read=JsonSerializer.Deserialize<MonitorSettings>(JsonSerializer.Serialize(old))!;
-        Assert.Equal(22,read.CodexFiveHourLowPercent);Assert.Equal(7,read.CodexWeeklyLowPercent);Assert.Equal(2.5m,read.ClaudeLowBalanceUsd);Assert.Equal(1.2m,read.DshLowBalance);Assert.Equal("USD",read.DshAlertCurrency);
+        Assert.Equal(22,read.CodexFiveHourLowPercent);Assert.Equal(7,read.CodexWeeklyLowPercent);Assert.Equal(2.5,read.GoFiveHourLowPercent);Assert.Equal(1.2m,read.DshLowBalance);Assert.Equal("USD",read.DshAlertCurrency);
     }
     [Theory][InlineData(1)][InlineData(1.25)][InlineData(1.5)][InlineData(2)][InlineData(3)]
     public void DpiAndNegativeMonitorDockingKeepCenterAndBounds(double scale)

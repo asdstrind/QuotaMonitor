@@ -1,4 +1,4 @@
-param([string]$OutputDirectory='publish\v1.6.4-win-x64',[switch]$SkipOnlineAudit)
+param([string]$OutputDirectory='publish\v1.7.0-win-x64',[switch]$SkipOnlineAudit)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $version=([xml](Get-Content -LiteralPath (Join-Path $root 'src\QuotaMonitor\QuotaMonitor.csproj') -Raw)).Project.PropertyGroup.Version
@@ -17,6 +17,7 @@ Copy-Item -LiteralPath (Join-Path $root 'licenses') -Destination $output -Recurs
 New-Item -ItemType Directory -Path (Join-Path $output 'docs') | Out-Null
 Copy-Item -LiteralPath (Join-Path $root 'docs\ANTIGRAVITY-HISTORY.md') -Destination (Join-Path $output 'docs')
 Copy-Item -LiteralPath (Join-Path $root 'docs\CONFIGURATION.md') -Destination (Join-Path $output 'docs')
+Copy-Item -LiteralPath (Join-Path $root 'docs\OPENCODE-GO-TOKENS.md') -Destination (Join-Path $output 'docs')
 New-Item -ItemType Directory -Path (Join-Path $output 'bridge') | Out-Null
 $bridgeOutput=Join-Path $output 'bridge\dsh-balance-bridge'
 New-Item -ItemType Directory -Path $bridgeOutput | Out-Null

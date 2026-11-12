@@ -19,7 +19,18 @@ public sealed record GridDay(DateOnly Date, int Column, int Row, bool IsToday, I
         try { return known.Aggregate(0L, (sum, value) => checked(sum + value)); } catch (OverflowException) { return null; }
     }
 }
-public sealed record GridProvider(string Id, long? Reference, long Tokens, long Requests, decimal? Cost, int ActiveDays, int CoveredDays, DateOnly? CoverageStart, bool HasEstimated, bool HasPartial, UsageHistory? History);
+public sealed record GridProvider(string Id, long? Reference, long? Tokens, long? Requests, decimal? Cost, int ActiveDays, int CoveredDays, DateOnly? CoverageStart, bool HasEstimated, bool HasPartial, UsageHistory? History)
+{
+    // Independent of the calendar viewport; unknown amounts remain null.
+    public UsageTotals Cumulative { get; init; } = new(null, null, null, 0, null, null);
+}
+public sealed record UsageTotals(long? Tokens, long? Requests, decimal? Cost, int KnownTokenDays, DateOnly? Start, DateOnly? End)
+{
+    internal static UsageTotals From(IReadOnlyCollection<UsageDay> days) => new(
+        GridDay.SumKnown(days.Select(d => d.Tokens)), GridDay.SumKnown(days.Select(d => d.Requests)),
+        days.Count > 0 && days.All(d => d.Cost is not null) ? days.Sum(d => d.Cost!.Value) : null,
+        days.Count(d => d.Tokens is not null), days.Count > 0 ? days.Min(d => d.Date) : null, days.Count > 0 ? days.Max(d => d.Date) : null);
+}
 public sealed record GridMonth(int Column, DateOnly Month);
 
 /// <summary>
@@ -33,7 +44,7 @@ public sealed record UsageGrid(DateOnly Start, DateOnly Today, int Weeks, IReadO
     public const double SharedDecades = 4;
     public const double RelativeDecades = 3;
     public const double MinLevel = 0.06;
-    public static readonly IReadOnlyList<string> Order = ["codex", "claude", "dsh", "antigravity"];
+    public static readonly IReadOnlyList<string> Order = ["codex", "dsh", "antigravity", "opencode-go"];
 
     public static DateOnly WindowStart(DateOnly today, int weeks)
     {
@@ -65,9 +76,10 @@ public sealed record UsageGrid(DateOnly Start, DateOnly Today, int Weeks, IReadO
         var order = Order.Where(selected.Contains).ToArray();
         var start = WindowStart(today, weeks);
         var map = histories.OfType<UsageHistory>().GroupBy(h => h.ProviderId).ToDictionary(g => g.Key, g => g.Last());
-        var lookups = order.ToDictionary(id => id, id => map.TryGetValue(id, out var h)
-            ? h.Days.Where(d => d.Date >= start && d.Date <= today).GroupBy(d => d.Date).ToDictionary(g => g.Key, Deduplicate)
+        var allDays = order.ToDictionary(id => id, id => map.TryGetValue(id, out var h)
+            ? h.Days.Where(d => d.Date <= today).GroupBy(d => d.Date).ToDictionary(g => g.Key, Deduplicate)
             : new Dictionary<DateOnly, UsageDay>());
+        var lookups = order.ToDictionary(id => id, id => allDays[id].Where(p => p.Key >= start).ToDictionary());
         var providers = new List<GridProvider>();
         var pooled = new List<long>();
         foreach (var id in order)
@@ -76,8 +88,9 @@ public sealed record UsageGrid(DateOnly Start, DateOnly Today, int Weeks, IReadO
             var positive = days.Where(d => d.Tokens > 0).Select(d => d.Tokens!.Value).ToArray();
             // A window cost is only shown when every covered day carries one.
             decimal? cost = days.Length > 0 && days.All(d => d.Cost is not null) ? days.Sum(d => d.Cost!.Value) : null;
-            providers.Add(new GridProvider(id, Percentile95(positive), days.Sum(d => d.Tokens ?? 0), days.Sum(d => d.Requests ?? 0), cost, positive.Length, days.Length,
-                days.Length > 0 ? days.Min(d => d.Date) : null, days.Any(d => d.Quality == UsageQuality.Estimated && d.Tokens > 0), days.Any(d => d.Quality == UsageQuality.Partial), map.GetValueOrDefault(id)));
+            providers.Add(new GridProvider(id, Percentile95(positive), GridDay.SumKnown(days.Select(d => d.Tokens)), GridDay.SumKnown(days.Select(d => d.Requests)), cost, positive.Length, days.Length,
+                days.Length > 0 ? days.Min(d => d.Date) : null, days.Any(d => d.Quality == UsageQuality.Estimated && d.Tokens > 0), days.Any(d => d.Quality == UsageQuality.Partial), map.GetValueOrDefault(id))
+                { Cumulative = UsageTotals.From(allDays[id].Values) });
         }
         // One intensity axis from the enabled daily TOTALS, never independently normalized lanes.
         foreach (var date in lookups.Values.SelectMany(l => l.Keys).Distinct())

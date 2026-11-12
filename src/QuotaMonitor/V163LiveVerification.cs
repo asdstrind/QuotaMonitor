@@ -19,7 +19,7 @@ public partial class App
         var events=new List<object>();
         var model=new MonitorViewModel();
         model.Providers.Add(new(ProviderSnapshot.Empty("dsh","DSH",MetricType.Balance)));
-        var settings=new MonitorSettings{ShowCodex=false,ShowClaude=false,ShowAntigravity=false,HideInFullscreen=false};
+        var settings=new MonitorSettings{ShowCodex=false,ShowGo=false,ShowAntigravity=false,HideInFullscreen=false};
         var today=DateOnly.FromDateTime(DateTime.Now);model.ApplyVisibility(settings,today);
         var window=new IslandWindow(model,settings,()=>{}){Title="QuotaMonitor v1.6.3 · Live verification"};MainWindow=window;
         window.VerificationSuspendsPointer=true;window.Show();window.SetState(IslandState.Expanded,false);

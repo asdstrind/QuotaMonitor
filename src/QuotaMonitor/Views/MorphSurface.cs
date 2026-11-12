@@ -6,6 +6,13 @@ using System.Windows.Media.Imaging;
 
 namespace QuotaMonitor.Views;
 
+public class TooltipOverlay : Canvas
+{
+    private Geometry? retainedClip;
+    public void SetRenderClip(Geometry geometry){retainedClip=geometry;VisualClip=geometry;}
+    protected override Geometry? GetLayoutClip(Size layoutSlotSize)=>retainedClip;
+}
+
 public class MorphLayoutHost : Grid
 {
     private Geometry? retainedClip;

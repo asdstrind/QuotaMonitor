@@ -12,10 +12,12 @@ public static class LowQuotaAlerts
     // Keep the independent threshold decisions for diagnostics; presentation has one slot per Harness.
     public static IReadOnlyList<LowQuotaAlert> Minimal(IReadOnlyList<LowQuotaAlert> alerts)
     {
-        var result = alerts.Where(a => !a.Key.StartsWith("ag-", StringComparison.Ordinal) && (a.Key != "codex-5h" || !alerts.Any(b => b.Key == "codex-week"))).ToList();
+        var result = alerts.Where(a => !a.Key.StartsWith("go-", StringComparison.Ordinal) && !a.Key.StartsWith("ag-", StringComparison.Ordinal) && (a.Key != "codex-5h" || !alerts.Any(b => b.Key == "codex-week"))).ToList();
         var ag = alerts.Where(a => a.Key.StartsWith("ag-", StringComparison.Ordinal)).ToArray();
         if (ag.Length > 0) result.Add(ag[0] with { Key = "antigravity", SecondLabel = ag.Length > 1 ? ag[1].Label : null, SecondValue = ag.Length > 1 ? ag[1].Value : null });
-        return result.OrderBy(a => a.Key.StartsWith("codex", StringComparison.Ordinal) ? 0 : a.Key == "claude" ? 1 : a.Key == "dsh" ? 2 : 3).ToArray();
+        var go=alerts.Where(a=>a.Key.StartsWith("go-",StringComparison.Ordinal)).LastOrDefault();
+        if(go is not null)result.Add(go);
+        return result.OrderBy(a => a.Key.StartsWith("codex", StringComparison.Ordinal) ? 0 : a.Key == "dsh" ? 1 : a.Key == "antigravity" ? 2 : 3).ToArray();
     }
     public static IReadOnlyList<LowQuotaAlert> Evaluate(IEnumerable<ProviderSnapshot> snapshots, MonitorSettings settings, DateTimeOffset now)
     {
@@ -44,23 +46,25 @@ public static class LowQuotaAlerts
                 }
                 continue;
             }
-            if (s.ProviderId == "claude" && settings.ClaudeLowBalanceUsd > 0 && s.Currency == "USD" && s.RemainingBalance is { } amount && amount < settings.ClaudeLowBalanceUsd)
-                alerts.Add(new("claude", "C", "#E2672F", $"ClaudeCN 余额低于 USD {settings.ClaudeLowBalanceUsd}", "$" + amount.ToString("0.00", CultureInfo.InvariantCulture)));
-            if (s.ProviderId != "codex" || s.Windows.Count == 0) continue;
+            if (s.ProviderId is not ("codex" or "opencode-go") || s.Windows.Count == 0) continue;
+            var go = s.ProviderId == "opencode-go";
             var bucket = s.Windows.Any(w => w.Bucket == "codex") ? "codex" : s.Windows[0].Bucket;
-            foreach (var (duration, threshold, key, label) in new[] {
-                (300L, settings.CodexFiveHourLowPercent, "codex-5h", "5h"),
-                (10080L, settings.CodexWeeklyLowPercent, "codex-week", "W") })
+            var windows = go ? new[] {
+                ("rolling", settings.GoFiveHourLowPercent, "go-5h", "5h"),
+                ("weekly", settings.GoWeeklyLowPercent, "go-week", "7d"),
+                ("monthly", settings.GoMonthlyLowPercent, "go-month", "月") }
+                : new[] { ("300", settings.CodexFiveHourLowPercent, "codex-5h", "5h"), ("10080", settings.CodexWeeklyLowPercent, "codex-week", "W") };
+            foreach (var (windowId, threshold, key, label) in windows)
             {
-                if (!double.IsFinite(threshold) || threshold <= 0 || threshold > 100) continue;
-                var window = s.Windows.FirstOrDefault(w => w.Bucket == bucket && w.DurationMinutes == duration);
-                if (window is null || !double.IsFinite(window.UsedPercent) || window.UsedPercent is < 0 or > 100 ||
-                    window.ResetAt is { } reset && reset <= now || window.RemainingPercent >= threshold) continue;
-                alerts.Add(new(key, label, "#19A67A", $"Codex {(duration == 300 ? "5 小时" : "周")}剩余额度 {window.RemainingPercent:0.#}% · 低于 {threshold:0.#}%", (duration == 300 ? "5h " : "7d ") + window.RemainingPercent.ToString("0.#", CultureInfo.InvariantCulture) + "%"));
+                var window = s.Windows.FirstOrDefault(w => go ? w.Bucket == windowId : w.Bucket == bucket && w.DurationMinutes?.ToString(CultureInfo.InvariantCulture) == windowId);
+                if (!IsLow(window, threshold, now)) continue;
+                alerts.Add(new(key, label, go ? "#A6A6A8" : "#19A67A", $"{(go ? "OpenCode Go" : "Codex")} {window!.Name} 剩余 {window.RemainingPercent:0.#}% · 低于 {threshold:0.#}%", (key=="codex-week"?"7d":label) + " " + window.RemainingPercent.ToString("0.#", CultureInfo.InvariantCulture) + "%"));
             }
         }
         return alerts;
     }
+
+    private static bool IsLow(QuotaWindow? window,double threshold,DateTimeOffset now)=>double.IsFinite(threshold)&&threshold>0&&threshold<=100&&window is not null&&double.IsFinite(window.UsedPercent)&&window.UsedPercent is >=0 and <=100&&!(window.ResetAt is {} reset&&reset<=now)&&window.RemainingPercent<threshold;
 
     private static string SumDisplay(IReadOnlyList<WalletBalance> wallets, string currency)
     {

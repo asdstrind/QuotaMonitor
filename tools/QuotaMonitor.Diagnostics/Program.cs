@@ -4,6 +4,15 @@ using QuotaMonitor.Core.Configuration;
 using QuotaMonitor.Core.Models;
 
 var settings=new MonitorSettings();
+if(args.Contains("--regression-sanitized")){
+    using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(55));
+    await using var receiver=new QuotaMonitor.Core.Services.DshBalanceReceiver();
+    var adapters=new QuotaMonitor.Core.Adapters.IProviderAdapter[]{new CodexAdapter(settings),new DshAdapter(settings,receiver),new AntigravityAdapter()};
+    var results=new List<object>();
+    foreach(var adapter in adapters){try{var snapshot=await adapter.RefreshAsync(true,timeout.Token);results.Add(new{Provider=adapter.Id,Status=snapshot.ConnectionStatus.ToString(),QuotaAvailable=snapshot.Windows.Count>0,OfficialBalanceReady=snapshot.AccountBalance?.At(DateTimeOffset.UtcNow)==DshBalanceState.Ready,UsageAvailable=snapshot.TotalTokens is not null,ExceptionFree=true});}catch(Exception ex){results.Add(new{Provider=adapter.Id,ExceptionFree=false,ErrorType=ex.GetType().Name});}}
+    Console.WriteLine(JsonSerializer.Serialize(new{Results=results,UsageAndIdentitySaved=false},new JsonSerializerOptions{WriteIndented=true}));return;
+}
+if(args.Contains("--codex-audit")){await CodexAudit.Run(args);return;}
 if(args.Contains("--dsh-watch")){
     // Transient console observation only. Do not persist account balances in the workspace.
     await using var receiver=new QuotaMonitor.Core.Services.DshBalanceReceiver();

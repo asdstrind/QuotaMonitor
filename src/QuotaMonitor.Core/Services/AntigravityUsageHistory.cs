@@ -141,8 +141,10 @@ public sealed class AntigravityHistorySource(string? geminiHome = null, string? 
             // Successful reads establish zeros only within dated local history coverage.
             // An empty schema cannot establish when history started.
             if(groups.Count==0)return Empty("Unavailable · 本地历史尚无可确定覆盖范围的时间记录。");
-            var coverage=groups.Keys.Min()>request.WindowStart?groups.Keys.Min():request.WindowStart;
-            var dates=partial?groups.Keys.Where(d=>d>=request.WindowStart&&d<=request.Today):Enumerable.Range(0,Math.Max(0,request.Today.DayNumber-coverage.DayNumber+1)).Select(i=>coverage.AddDays(i));
+            // The source already scanned all retained records. Preserve their full dated
+            // coverage; UsageGrid alone selects the 26-week calendar viewport.
+            var coverage=groups.Keys.Min();
+            var dates=partial?groups.Keys.Where(d=>d<=request.Today):Enumerable.Range(0,Math.Max(0,request.Today.DayNumber-coverage.DayNumber+1)).Select(i=>coverage.AddDays(i));
             foreach(var date in dates.Order())
             {
                 var rows=groups.GetValueOrDefault(date)??[];
@@ -151,7 +153,7 @@ public sealed class AntigravityHistorySource(string? geminiHome = null, string? 
                 if(partial&&tokens==0)continue;
                 days.Add(new(date,tokens,rows.LongLength,null,partial?UsageQuality.Partial:UsageQuality.Exact,now,rows.Aggregate(0L,(sum,e)=>checked(sum+e.CacheRead)),partial?Math.Max(1,excluded):0));
             }
-            if(days.Count==0&&partial)return Empty("Unavailable · 存在不完整历史，但没有可核验的窗口内 Token 数。");
+            if(days.Count==0&&partial)return Empty("Unavailable · 存在不完整历史，但没有可核验的历史 Token 数。");
             return new(){ProviderId=Id,Days=days,CoverageStart=days.Count>0?days.Min(d=>d.Date):null,UpdatedAt=now,Source=source,Scope=scope,
                 Error=partial?"Partial · 本地历史不完整；仅包含已确认 Token。":null,
                 Note=$"输入 + 缓存写入 + 缓存读取 + 输出（含 Thinking，计一次）。扫描 {files.Count} 个 SQLite；{verified.Length} 条去重记录；{excluded} 处记录或附加结构未能完整核验（整个扫描范围，不是各日期的排除条数）。完整仅指本机现存可识别历史，不代表云端或已删除会话完整。"};

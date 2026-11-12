@@ -98,9 +98,9 @@ public partial class App
             DesktopCapture(form,Path.Combine(folder,"settings.png"));
             ((TextBox)form.FindName("FiveHourThreshold")).Text="NaN";
             checks["InvalidThresholdRejected"]=!form.SaveForSmoke()&&form.IsVisible;
-            ((TextBox)form.FindName("FiveHourThreshold")).Text="23";((TextBox)form.FindName("WeeklyThreshold")).Text="12";((TextBox)form.FindName("ClaudeThreshold")).Text="3.5";((TextBox)form.FindName("DshThreshold")).Text="4.5";
+            ((TextBox)form.FindName("FiveHourThreshold")).Text="23";((TextBox)form.FindName("WeeklyThreshold")).Text="12";((TextBox)form.FindName("GoThreshold")).Text="3.5";((TextBox)form.FindName("DshThreshold")).Text="4.5";
             checks["SettingsSave"]=form.SaveForSmoke();
-            var loaded=isolated.Load();checks["SettingsThresholdRoundtrip"]=loaded.CodexFiveHourLowPercent==23&&loaded.CodexWeeklyLowPercent==12&&loaded.ClaudeLowBalanceUsd==3.5m&&loaded.DshLowBalance==4.5m;
+            var loaded=isolated.Load();checks["SettingsThresholdRoundtrip"]=loaded.CodexFiveHourLowPercent==23&&loaded.CodexWeeklyLowPercent==12&&loaded.GoFiveHourLowPercent==3.5&&loaded.DshLowBalance==4.5m;
             form=null;MoveAway();await Pause(1300);
             // Click below the 8 DIP strip: an underlying real HWND receives it, proving the sensor does not intercept.
             window.SetState(IslandState.Minimal,false);NativeWindow.GetWindowRect(hwnd,out minimalBounds);
@@ -132,11 +132,11 @@ public partial class App
             var now=DateTimeOffset.UtcNow;foreach(var p in model.Providers)
             {
                 var fixture=p.Snapshot with{ConnectionStatus=ConnectionStatus.Ready,LastUpdated=now,NeedsSetup=false,IsEstimated=false};
-                fixture=p.Id switch{"codex"=>fixture with{Windows=[new("codex","Primary",99,300,now.AddHours(1)),new("codex","Secondary",99,10080,now.AddDays(1))]},"claude"=>fixture with{RemainingBalance=1,Currency="USD"},_=>fixture with{AccountBalance=new(new([new("CNY","1")],[],now,"verification fixture"),DshBalanceState.Ready,null)}};
+                fixture=p.Id switch{"codex"=>fixture with{Windows=[new("codex","Primary",99,300,now.AddHours(1)),new("codex","Secondary",99,10080,now.AddDays(1))]},"opencode-go"=>fixture with{RemainingBalance=1,Currency="USD"},_=>fixture with{AccountBalance=new(new([new("CNY","1")],[],now,"verification fixture"),DshBalanceState.Ready,null)}};
                 p.Update(fixture);
             }
             model.UpdateAlerts(config,now);window.SetState(IslandState.Minimal,false);await Save("minimal-alerts-fixture");
-            checks["FourAlertBindings"]=model.Alerts.Count==4&&model.FiveHourMark=="5h"&&model.WeeklyMark=="W"&&model.ClaudeMark=="C"&&model.DshMark=="D";
+            checks["FourAlertBindings"]=model.Alerts.Count==4&&model.FiveHourMark=="5h"&&model.WeeklyMark=="W"&&model.GoMark=="C"&&model.DshMark=="D";
             checks["AlertsKeepMinimalSize"]=window.Width==176&&window.Height==8;
             foreach(var p in model.Providers)p.Update(p.Snapshot with{LastUpdated=now.AddMinutes(-8),AccountBalance=p.Snapshot.AccountBalance is {} b?b with{State=DshBalanceState.Stale}:null});
             model.UpdateAlerts(config,now);checks["StaleClearsAllAlertBindings"]=model.Alerts.Count==0;

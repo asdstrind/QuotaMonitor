@@ -47,6 +47,16 @@ public sealed class AntigravityHistoryTests : IDisposable
         Assert.Null(vm.Grid!.Days.Single(d=>d.Date==Today.AddDays(-4)).Lanes.Single(l=>l.ProviderId=="antigravity").Tokens);
         Assert.Equal("0",vm.BuildTip(vm.Grid.Days[^1]).Rows.Single(r=>r.Name=="Antigravity").Value);
     }
+    [Fact] public void V166AllRetainedHistorySurvivesTheCalendarWindow()
+    {
+        using(var db=Create()){Insert(db,0,Turn(at:At.AddDays(-240)));Insert(db,1,Turn(response:"recent"));}
+        var h=Read();Assert.Null(h.Error);Assert.Equal(360,h.Days.Sum(d=>d.Tokens));
+        var grid=UsageGrid.Build([h],Today,visible:["antigravity"]);
+        Assert.Equal(180,grid.Providers[0].Tokens);Assert.Equal(360,grid.Providers[0].Cumulative.Tokens);
+        Assert.True(h.CoverageStart<UsageGrid.WindowStart(Today,26));
+        using(var db=new HistorySqlite(Db(),writableFixture:true))Insert(db,2,[255]);
+        h=Read();Assert.NotNull(h.Error);Assert.Equal(360,h.Days.Sum(d=>d.Tokens));Assert.All(h.Days,d=>Assert.Equal(UsageQuality.Partial,d.Quality));
+    }
     [Fact] public void InputCacheWriteReadAndOutputAreCountedOnceModelIdIsNotTokens()
     {
         using(var db=Create())Insert(db,0,Turn(write:7));

@@ -18,17 +18,18 @@ public sealed class CodexUsageHistory(TimeZoneInfo? zone = null)
     private const int MaxLineBytes = 64 * 1024 * 1024;
     private static readonly byte[] RecordMarker = "\"token_usage_record\""u8.ToArray();
     private static readonly byte[] CountMarker = "\"token_count\""u8.ToArray();
+    private static readonly byte[] SessionMarker = "\"session_meta\""u8.ToArray();
     private readonly TimeZoneInfo zone = zone ?? TimeZoneInfo.Local;
     private readonly Dictionary<string, FileState> files = new(StringComparer.OrdinalIgnoreCase);
     private readonly object gate = new();
 
-    private readonly record struct UsageEvent(ulong Key, DateOnly Day, long Tokens, long Cached, bool Estimated);
+    private readonly record struct UsageEvent(ulong Key, ulong Session, DateTimeOffset At, DateOnly Day, long Tokens, long Cached, bool Record, long Last, long? Input, long? Output, bool Estimated);
     private sealed class FileState
     {
         public long Length;
         public DateTime Modified;
         public long Offset;
-        public bool RecordMode;
+        public ulong Session;
         public long? LastCumulative;
         public DateOnly? LastDay;
         public DateOnly? NameDay;
@@ -83,7 +84,7 @@ public sealed class CodexUsageHistory(TimeZoneInfo? zone = null)
         if (state is not null && state.Length == info.Length && state.Modified == info.LastWriteTimeUtc) return;
         // Plain rollouts are append-only: continue from the last complete line. Anything else restarts.
         var append = state is not null && !compressed && !state.Unreadable && info.Length > state.Length && info.Length >= state.Offset;
-        var target = append ? state! : new FileState { NameDay = NameDay(file) };
+        var target = append ? state! : new FileState { NameDay = NameDay(file), Session = Hash(Path.GetFileName(file).Replace(".zst", "", StringComparison.OrdinalIgnoreCase)) };
         try
         {
             using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16, FileOptions.SequentialScan);
@@ -151,8 +152,8 @@ public sealed class CodexUsageHistory(TimeZoneInfo? zone = null)
         var head = line.Length <= 4096 ? line : line[..256];
         var isRecord = head.IndexOf(RecordMarker) >= 0;
         var isCount = !isRecord && head.IndexOf(CountMarker) >= 0;
-        if (!isRecord && !isCount) return;
-        if (isCount && state.RecordMode) return;
+        var isSession = !isRecord && !isCount && head.IndexOf(SessionMarker) >= 0;
+        if (!isRecord && !isCount && !isSession) return;
         JsonDocument doc;
         try { doc = JsonDocument.Parse(line.ToArray()); }
         catch (JsonException) { Invalid(state, null); return; }
@@ -161,14 +162,14 @@ public sealed class CodexUsageHistory(TimeZoneInfo? zone = null)
             var root = doc.RootElement;
             var type = root.Text("type");
             var payload = root.Field("payload");
+            if (type == "session_meta" && payload?.Text("id") is { } session) { state.Session = Hash(session); return; }
             if (type == "token_usage_record" && payload is { } record) { Record(root, record, state); return; }
-            if (type == "event_msg" && payload is { } message && message.Text("type") == "token_count" && !state.RecordMode) Legacy(root, message, state);
+            if (type == "event_msg" && payload is { } message && message.Text("type") == "token_count") Legacy(root, message, state);
         }
     }
 
     private void Record(JsonElement root, JsonElement payload, FileState state)
     {
-        state.RecordMode = true;
         var day = Day(root);
         var usage = payload.Field("usage");
         var input = usage?.Count("input_tokens"); var output = usage?.Count("output_tokens");
@@ -176,8 +177,8 @@ public sealed class CodexUsageHistory(TimeZoneInfo? zone = null)
         long total;
         try { total = checked(input.Value + output.Value); } catch (OverflowException) { Invalid(state, day); return; }
         if (usage!.Value.Count("total_tokens") is { } declared && declared != total) { Invalid(state, day); return; }
-        var id = payload.Text("response_id") ?? $"{root.Text("timestamp")}|{payload.Text("turn_id")}|{total}";
-        Add(state, new(Hash("R|" + id), day.Value, total, Math.Min(usage.Value.Count("cached_input_tokens") ?? 0, input.Value), false));
+        var id = payload.Text("response_id") ?? $"{state.Session}|{root.Text("timestamp")}|{payload.Text("turn_id")}|{total}";
+        Add(state, new(Hash("R|" + id), state.Session, At(root)!.Value, day.Value, total, Math.Min(usage.Value.Count("cached_input_tokens") ?? 0, input.Value), true, total, input, output, false));
     }
 
     // Older CLI builds only emit cumulative counters. Each change of the running total is one billed
@@ -190,15 +191,20 @@ public sealed class CodexUsageHistory(TimeZoneInfo? zone = null)
         var lastUsage = info.Field("last_token_usage");
         var last = lastUsage?.Count("total_tokens");
         if (day is null || cumulative is null || last is null) { Invalid(state, day); return; }
-        if (state.LastCumulative == cumulative) return;
-        var previous = state.LastCumulative; state.LastCumulative = cumulative;
-        long tokens = last.Value; var estimated = false;
-        if (previous is null) estimated = cumulative != last;
-        else if (cumulative < previous) estimated = true;
-        else if (cumulative - previous != last) { tokens = cumulative.Value - previous.Value; estimated = true; }
+        if(state.LastCumulative==cumulative)return;
+        var previous=state.LastCumulative;state.LastCumulative=cumulative;
+        if(lastUsage!.Value.Count("input_tokens") is {} input && lastUsage.Value.Count("output_tokens") is {} output)
+        {
+            try { if(checked(input+output)!=last.Value){Invalid(state,day);return;} }
+            catch(OverflowException){Invalid(state,day);return;}
+        }
+        var tokens=last.Value;var estimated=false;
+        if(previous is null)estimated=cumulative!=last;
+        else if(cumulative<previous)estimated=true;
+        else if(cumulative-previous!=last){tokens=cumulative.Value-previous.Value;estimated=true;}
         state.Legacy = true;
-        var cached = Math.Min(lastUsage!.Value.Count("cached_input_tokens") ?? 0, tokens);
-        Add(state, new(Hash($"L|{root.Text("timestamp")}|{cumulative}|{last}"), day.Value, tokens, cached, estimated));
+        var cached = Math.Min(lastUsage!.Value.Count("cached_input_tokens") ?? 0, lastUsage.Value.Count("input_tokens") ?? last.Value);
+        Add(state, new(Hash($"L|{state.Session}|{root.Text("timestamp")}|{cumulative}|{last}"), state.Session, At(root)!.Value, day.Value, tokens, cached, false, last.Value, lastUsage.Value.Count("input_tokens"), lastUsage.Value.Count("output_tokens"), estimated));
     }
 
     private static void Add(FileState state, UsageEvent value)
@@ -213,29 +219,49 @@ public sealed class CodexUsageHistory(TimeZoneInfo? zone = null)
         if (at is { } d) state.Invalid[d] = state.Invalid.GetValueOrDefault(d) + 1; else state.InvalidUnattributed++;
     }
 
-    private DateOnly? Day(JsonElement root)
+    private static DateTimeOffset? At(JsonElement root)
     {
         if (root.Text("timestamp") is not { } text || !DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at)) return null;
-        return DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(at, zone).DateTime);
+        return at;
     }
+    private DateOnly? Day(JsonElement root) => At(root) is {} at ? DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(at, zone).DateTime) : null;
 
     private UsageHistory Aggregate(DateOnly today)
     {
         // Copies (a rollout briefly existing plain and compressed) are removed by event key. Session
         // ids are not unique per file: a continued session writes a new segment under the same id.
         var chosen = files.OrderBy(f => f.Key, StringComparer.OrdinalIgnoreCase).Select(f => f.Value).ToArray();
-        var seen = new HashSet<ulong>();
         var days = new Dictionary<DateOnly, (long Tokens, long Requests, long Cached, bool Estimated)>();
         var partial = new Dictionary<DateOnly, int>();
         int unattributed = 0, unreadable = 0;
+        var unique = chosen.SelectMany(s => s.Events).GroupBy(e => e.Key).Select(g => g.First()).ToArray();
+        void Include(UsageEvent e, long tokens, bool estimated)
+        {
+            if (e.Day > today) return;
+            var d = days.GetValueOrDefault(e.Day);
+            try { days[e.Day] = (checked(d.Tokens + tokens), checked(d.Requests + 1), checked(d.Cached + Math.Min(e.Cached, tokens)), d.Estimated || estimated); }
+            catch (OverflowException) { partial[e.Day] = partial.GetValueOrDefault(e.Day) + 1; }
+        }
+        foreach (var session in unique.GroupBy(e => e.Session))
+        {
+            var pending = new List<UsageEvent>();
+            foreach (var e in session.OrderBy(e => e.At).ThenByDescending(e => e.Record))
+            {
+                if (e.Record) { Include(e, e.Tokens, false); pending.Add(e); continue; }
+                // Counter deltas belong to their original append-only segment; interleaved
+                // continuations sharing a session ID must never be spliced into one counter.
+                // Records can precede their counter mirrors by several other responses.
+                // Match full accounting fields one-to-one, within the same session and in
+                // timestamp order. Copies were already removed by stable event identities.
+                // Never suppress all future legacy events just because one modern record exists.
+                var mirror = pending.FindLastIndex(r => r.Tokens == e.Last &&
+                    (e.Input is null || e.Output is null || r.Input == e.Input && r.Output == e.Output) && (e.Output is null || r.Cached == e.Cached));
+                if (mirror >= 0) { pending.RemoveAt(mirror); continue; }
+                Include(e,e.Tokens,e.Estimated);
+            }
+        }
         foreach (var state in chosen)
         {
-            foreach (var e in state.Events)
-            {
-                if (!seen.Add(e.Key)) continue;
-                var d = days.GetValueOrDefault(e.Day);
-                days[e.Day] = (d.Tokens + e.Tokens, d.Requests + 1, d.Cached + e.Cached, d.Estimated || e.Estimated);
-            }
             foreach (var (day, count) in state.Invalid) partial[day] = partial.GetValueOrDefault(day) + count;
             unattributed += state.InvalidUnattributed;
             if (state.Unreadable) { unreadable++; if (state.NameDay is { } nd) partial[nd] = partial.GetValueOrDefault(nd) + 1; else unattributed++; }
@@ -249,7 +275,7 @@ public sealed class CodexUsageHistory(TimeZoneInfo? zone = null)
         {
             var excluded = partial.GetValueOrDefault(day);
             var q = excluded > 0 ? UsageQuality.Partial : days.TryGetValue(day, out var v) && v.Estimated ? UsageQuality.Estimated : UsageQuality.Exact;
-            list.Add(days.TryGetValue(day, out var value) ? new UsageDay(day, value.Tokens, value.Requests, null, q, null, value.Cached, excluded) : new UsageDay(day, 0, 0, null, q, null, 0, excluded));
+            list.Add(days.TryGetValue(day, out var value) ? new UsageDay(day, value.Tokens, value.Requests, null, q, null, value.Cached, excluded) : new UsageDay(day, excluded > 0 ? null : 0, excluded > 0 ? null : 0, null, q, null, excluded > 0 ? null : 0, excluded));
         }
         var notes = new List<string>();
         if (legacy) notes.Add("早期 CLI 版本仅记录累计计数，相应日期由累计值的逐次增量还原，增量与单次用量不一致处标为推算。");

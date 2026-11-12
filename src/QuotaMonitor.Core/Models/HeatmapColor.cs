@@ -5,10 +5,10 @@ public static class HeatmapColor
 {
     public static (byte R, byte G, byte B) At(string id, double level)
     {
-        var hue = (id switch { "codex" => 162d, "claude" => 45d, "dsh" => 258d, _ => 298d }) * Math.PI / 180;
+        var hue = (id switch { "codex" => 162d, "dsh" => 258d, _ => 298d }) * Math.PI / 180;
         level = Math.Clamp(level, 0, 1);
         var l = .27 + .39 * level;
-        var chroma = .025 + .13 * level;
+        var chroma = id == "opencode-go" ? 0 : .025 + .13 * level;
         (double R, double G, double B) rgb = default;
         for (var n = 0; n < 30; n++)
         {

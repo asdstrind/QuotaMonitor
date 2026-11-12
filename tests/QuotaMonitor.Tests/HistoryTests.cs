@@ -10,7 +10,7 @@ using ZstdSharp;
 
 namespace QuotaMonitor.Tests;
 
-// Daily history: Codex rollouts, DSH sessions, ClaudeCN statistics, the calendar grid and its view model.
+// Daily history: Codex rollouts, DSH sessions, OpenCode Go exports, the calendar grid and its view model.
 public sealed class HistoryTests
 {
     private static readonly TimeZoneInfo Utc = TimeZoneInfo.Utc;
@@ -152,100 +152,17 @@ public sealed class HistoryTests
         Assert.Empty(history.Days); Assert.NotNull(history.Error);
     }
 
-    // ---- ClaudeCN statistics per local day ----
-    private sealed class FixedTime(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
-    {
-        public DateTimeOffset Now { get; set; } = now;
-        public override DateTimeOffset GetUtcNow() => Now.ToUniversalTime();
-        public override TimeZoneInfo LocalTimeZone => zone;
-    }
-    private sealed class Recorder(Func<HttpRequestMessage, string> respond) : HttpMessageHandler
-    {
-        public List<Uri> Calls { get; } = [];
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            Calls.Add(request.RequestUri!);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(respond(request), Encoding.UTF8, "application/json") });
-        }
-    }
-    private sealed class Secret(string? value) : ISecretStore { public string? Read() => value; public void Write(string v) { } public void Delete() { } }
-    private static Dictionary<string, string> Query(Uri uri) => uri.Query.TrimStart('?').Split('&').Select(p => p.Split('=')).ToDictionary(p => p[0], p => p[1]);
-
-    [Fact] public async Task ClaudeHistoryBackfillsLocalDaysInBoundedBatches()
-    {
-        var zone = TimeZoneInfo.CreateCustomTimeZone("UTC+8", TimeSpan.FromHours(8), "UTC+8", "UTC+8");
-        var time = new FixedTime(new DateTimeOffset(2026, 10, 10, 15, 30, 0, TimeSpan.FromHours(8)), zone);
-        var handler = new Recorder(_ => """{"success":true,"data":{"quota":250000,"total_tokens":1200,"total_requests":3}}""");
-        using var http = new HttpClient(handler);
-        var adapter = new ClaudeCNAdapter(http, new MonitorSettings { ClaudeUserId = "42" }, new Secret("test-only"), time);
-        var request = new HistoryRequest(Today, Today.AddDays(-39), false);
-        var first = await adapter.ReadHistoryAsync(null, request, CancellationToken.None);
-        Assert.Equal(ClaudeCNAdapter.HistoryBatch, handler.Calls.Count);
-        Assert.Equal(40 - ClaudeCNAdapter.HistoryBatch, first.PendingDays);
-        Assert.All(handler.Calls, c => { Assert.Equal("/api/log/self/stat", c.AbsolutePath); Assert.Equal("2", Query(c)["type"]); });
-        // Today runs from local midnight to now; earlier days cover exactly one local calendar day.
-        var today = Query(handler.Calls[0]);
-        Assert.Equal(new DateTimeOffset(2026, 10, 10, 0, 0, 0, TimeSpan.FromHours(8)).ToUnixTimeSeconds().ToString(), today["start_timestamp"]);
-        Assert.Equal(time.Now.ToUnixTimeSeconds().ToString(), today["end_timestamp"]);
-        var yesterday = Query(handler.Calls[1]);
-        Assert.Equal(new DateTimeOffset(2026, 10, 9, 0, 0, 0, TimeSpan.FromHours(8)).ToUnixTimeSeconds().ToString(), yesterday["start_timestamp"]);
-        Assert.Equal((new DateTimeOffset(2026, 10, 10, 0, 0, 0, TimeSpan.FromHours(8)).ToUnixTimeSeconds() - 1).ToString(), yesterday["end_timestamp"]);
-        var day = first.Days.Single(d => d.Date == Today);
-        Assert.Equal(1200, day.Tokens); Assert.Equal(3, day.Requests); Assert.Equal(0.5m, day.Cost); Assert.Equal(UsageQuality.Exact, day.Quality);
-        handler.Calls.Clear();
-        var second = await adapter.ReadHistoryAsync(first, request, CancellationToken.None);
-        Assert.Equal(40 - ClaudeCNAdapter.HistoryBatch, handler.Calls.Count);
-        Assert.Equal(0, second.PendingDays); Assert.Equal(40, second.Days.Count);
-        handler.Calls.Clear();
-        time.Now = time.Now.AddMinutes(5);
-        await adapter.ReadHistoryAsync(second, request, CancellationToken.None);
-        Assert.Single(handler.Calls);
-    }
-    [Fact] public async Task ClaudeHistoryRereadsADayFetchedBeforeItEndedAndForgetsOtherAccounts()
-    {
-        var zone = TimeZoneInfo.Utc;
-        var time = new FixedTime(new DateTimeOffset(2026, 10, 10, 1, 0, 0, TimeSpan.Zero), zone);
-        var handler = new Recorder(_ => """{"success":true,"data":{"quota":0,"total_tokens":0,"total_requests":0}}""");
-        using var http = new HttpClient(handler);
-        var settings = new MonitorSettings { ClaudeUserId = "42" };
-        var adapter = new ClaudeCNAdapter(http, settings, new Secret("test-only"), time);
-        var request = new HistoryRequest(Today, Today.AddDays(-1), false);
-        var account = "claudecn:42:500000";
-        var previous = new UsageHistory { ProviderId = "claude", Account = account, Days = [new UsageDay(Today.AddDays(-1), 10, 1, 0m, UsageQuality.Exact, new DateTimeOffset(2026, 10, 9, 20, 0, 0, TimeSpan.Zero)), new UsageDay(Today, 5, 1, 0m, UsageQuality.Exact, time.Now)] };
-        var result = await adapter.ReadHistoryAsync(previous, request, CancellationToken.None);
-        Assert.Single(handler.Calls);
-        Assert.Equal(0, result.Days.Single(d => d.Date == Today.AddDays(-1)).Tokens);
-        handler.Calls.Clear();
-        settings.ClaudeUserId = "43";
-        var other = await adapter.ReadHistoryAsync(result, request, CancellationToken.None);
-        Assert.Equal(2, handler.Calls.Count); Assert.Equal("claudecn:43:500000", other.Account);
-    }
-    [Fact] public async Task ClaudeHistoryNeverStoresMissingStatisticsAsZero()
-    {
-        var handler = new Recorder(_ => """{"success":true,"data":{}}""");
-        using var http = new HttpClient(handler);
-        var result = await new ClaudeCNAdapter(http, new MonitorSettings { ClaudeUserId = "42" }, new Secret("test-only")).ReadHistoryAsync(null, new HistoryRequest(Today, Today.AddDays(-5), false), CancellationToken.None);
-        Assert.Empty(result.Days); Assert.NotNull(result.Error); Assert.Single(handler.Calls);
-    }
-    [Fact] public async Task ClaudeHistoryWithoutCredentialsDoesNotTouchTheNetwork()
-    {
-        var handler = new Recorder(_ => throw new InvalidOperationException("must not call"));
-        using var http = new HttpClient(handler);
-        var result = await new ClaudeCNAdapter(http, new MonitorSettings(), new Secret(null)).ReadHistoryAsync(null, new HistoryRequest(Today, Today.AddDays(-5), false), CancellationToken.None);
-        Assert.Empty(handler.Calls); Assert.Empty(result.Days); Assert.NotNull(result.Error);
-    }
-
     // ---- Calendar grid ----
     private static UsageHistory History(string id, params UsageDay[] days) => new() { ProviderId = id, Days = days, CoverageStart = days.Min(d => d.Date) };
     private static UsageDay D(int day, long tokens, UsageQuality q = UsageQuality.Exact, int excluded = 0) => new(new DateOnly(2026, 10, day), tokens, tokens > 0 ? 1 : 0, null, q, null, null, excluded);
 
     [Fact] public void GridAlignsWeeksToMondayAndKeepsMissingZeroEstimatedAndPartialApart()
     {
-        var grid = UsageGrid.Build([History("codex", D(5, 1_000_000), D(6, 0), D(7, 500, UsageQuality.Estimated)), History("claude", D(7, 20_000, UsageQuality.Partial, 1))], Today);
+        var grid = UsageGrid.Build([History("codex", D(5, 1_000_000), D(6, 0), D(7, 500, UsageQuality.Estimated)), History("opencode-go", D(7, 20_000, UsageQuality.Partial, 1))], Today);
         Assert.Equal(DayOfWeek.Monday, grid.Start.DayOfWeek); Assert.Equal(UsageGrid.DefaultWeeks, grid.Weeks); Assert.Equal(Today, grid.Days[^1].Date);
         GridLane Lane(int day, int index) => grid.Days.Single(d => d.Date == new DateOnly(2026, 10, day)).Lanes[index];
         Assert.Equal(LaneState.Exact, Lane(5, 0).State); Assert.Equal(LaneState.Zero, Lane(6, 0).State); Assert.Equal(LaneState.Estimated, Lane(7, 0).State);
-        Assert.Equal(LaneState.Missing, Lane(5, 1).State); Assert.Equal(LaneState.Partial, Lane(7, 1).State); Assert.Equal(1, Lane(7, 1).Excluded);
+        Assert.Equal(LaneState.Missing, Lane(5, 3).State); Assert.Equal(LaneState.Partial, Lane(7, 3).State); Assert.Equal(1, Lane(7, 3).Excluded);
         Assert.Equal(LaneState.Missing, Lane(7, 2).State);
         var monday = grid.Days.Single(d => d.Date == new DateOnly(2026, 10, 5));
         Assert.Equal(0, monday.Row); Assert.Same(monday, grid.DayAt(monday.Column, monday.Row));
@@ -254,11 +171,11 @@ public sealed class HistoryTests
     }
     [Fact] public void SharedScaleComparesPlatformsWhileRelativeScaleShowsEachRhythm()
     {
-        var grid = UsageGrid.Build([History("codex", D(8, 10_000_000), D(9, 100_000_000)), History("claude", D(8, 10_000), D(9, 100_000))], Today);
+        var grid = UsageGrid.Build([History("codex", D(8, 10_000_000), D(9, 100_000_000)), History("opencode-go", D(8, 10_000), D(9, 100_000))], Today);
         GridLane Lane(int day, int index) => grid.Days.Single(d => d.Date == new DateOnly(2026, 10, day)).Lanes[index];
-        Assert.True(Lane(9, 0).Level > Lane(9, 1).Level);
-        Assert.Equal(1, Lane(9, 0).RelativeLevel, 6); Assert.Equal(1, Lane(9, 1).RelativeLevel, 6);
-        Assert.True(Lane(8, 1).RelativeLevel < 1 && Lane(8, 1).RelativeLevel > UsageGrid.MinLevel);
+        Assert.True(Lane(9, 0).Level > Lane(9, 3).Level);
+        Assert.Equal(1, Lane(9, 0).RelativeLevel, 6); Assert.Equal(1, Lane(9, 3).RelativeLevel, 6);
+        Assert.True(Lane(8, 3).RelativeLevel < 1 && Lane(8, 3).RelativeLevel > UsageGrid.MinLevel);
         // Ten times the tokens is a fixed step on the log axis.
         Assert.Equal(1 / UsageGrid.SharedDecades, Lane(9, 0).Level - Lane(8, 0).Level, 6);
         Assert.Equal(UsageGrid.MinLevel, UsageGrid.Level(1, 1_000_000_000, UsageGrid.SharedDecades));
@@ -304,23 +221,15 @@ public sealed class HistoryTests
         vm.Update(vm.Snapshot with { LastUpdated = now.AddMinutes(-30) });
         Assert.Equal("已过期", vm.StateText); Assert.True(vm.StateIsWarning); Assert.True(vm.ValueOpacity < 1); Assert.Equal("—", vm.Compact);
     }
-    [Fact] public void ClaudeSetupStateAndBalanceReadout()
-    {
-        var setup = new ProviderViewModel(ProviderSnapshot.Empty("claude", "Claude", MetricType.Balance) with { ConnectionStatus = ConnectionStatus.Unavailable, NeedsSetup = true });
-        Assert.Equal("未配置", setup.StateText); Assert.False(setup.HasAmount); Assert.Equal("—", setup.AmountMajor);
-        var live = new ProviderViewModel(ProviderSnapshot.Empty("claude", "Claude", MetricType.Balance) with { ConnectionStatus = ConnectionStatus.Ready, LastUpdated = DateTimeOffset.UtcNow, RemainingBalance = 12.345678m, TodayCost = 0.37m, Currency = "USD" });
-        Assert.Equal("$", live.AmountSymbol); Assert.Equal("12", live.AmountMajor); Assert.Equal(".35", live.AmountMinor); Assert.Equal("今日已用 $0.37", live.DetailLine);
-        Assert.Contains("12.345678", live.Tooltip);
-    }
     [Fact] public void DayTipSaysWhichPlatformIsMissingZeroEstimatedOrIncomplete()
     {
         var vm = new MonitorViewModel();
         vm.UpdateHistory(History("codex", D(7, 2_500_000, UsageQuality.Estimated)), Today);
-        vm.UpdateHistory(History("claude", D(7, 0)), Today);
+        vm.UpdateHistory(History("opencode-go", D(7, 0)), Today);
         vm.UpdateHistory(History("dsh", D(7, 36_000, UsageQuality.Partial, 2)), Today);
         var tip = vm.BuildTip(vm.Grid!.Days.Single(d => d.Date == new DateOnly(2026, 10, 7)));
         Assert.Equal("10月7日 星期三", tip.Title);
-        Assert.Equal(["2,500,000", "0", "36,000", "—"], tip.Rows.Select(r => r.Value));
+        Assert.Equal(["2,500,000", "36,000", "—", "0"], tip.Rows.Select(r => r.Value));
         Assert.All(tip.Rows,r=>{Assert.Null(r.Flag);Assert.Empty(r.Detail);});
         Assert.Equal("合计 2,536,000 Token", tip.Note);
         var missing = vm.BuildTip(vm.Grid.Days.Single(d => d.Date == new DateOnly(2026, 10, 1)));
@@ -329,12 +238,12 @@ public sealed class HistoryTests
     [Fact] public void LaneSummariesReportBackfillAndPinnedFocus()
     {
         var vm = new MonitorViewModel();
-        vm.UpdateHistory(History("claude", D(9, 1000), D(10, 2000)) with { PendingDays = 30, Scope = "ClaudeCN", Source = "stat" }, Today);
-        var claude = vm.Lanes.Single(l => l.Id == "claude");
+        vm.UpdateHistory(History("opencode-go", D(9, 1000), D(10, 2000)) with { PendingDays = 30, Scope = "OpenCode Go", Source = "stat" }, Today);
+        var claude = vm.Lanes.Single(l => l.Id == "opencode-go");
         Assert.Equal("3,000", claude.Total); Assert.StartsWith("回溯中", claude.Status);
         Assert.Equal("读取中", vm.Lanes.Single(l => l.Id == "codex").Status);
-        vm.TogglePinnedLane("claude"); Assert.Equal("claude", vm.FocusLane); Assert.True(vm.Lanes.Single(l => l.Id == "claude").Pinned);
+        vm.TogglePinnedLane("opencode-go"); Assert.Equal("opencode-go", vm.FocusLane); Assert.True(vm.Lanes.Single(l => l.Id == "opencode-go").Pinned);
         vm.HoverLane = "dsh"; Assert.Equal("dsh", vm.FocusLane);
-        vm.HoverLane = null; vm.TogglePinnedLane("claude"); Assert.Null(vm.FocusLane);
+        vm.HoverLane = null; vm.TogglePinnedLane("opencode-go"); Assert.Null(vm.FocusLane);
     }
 }

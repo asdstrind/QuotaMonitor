@@ -6,15 +6,14 @@ embedded service logos are retained solely to identify the monitored services.
 | Asset | Rights holder | Provenance |
 | --- | --- | --- |
 | Codex / OpenAI Blossom | OpenAI | [Original source](src/QuotaMonitor/Assets/Harness/SOURCES.md) |
-| Claude starburst | Anthropic | [Original source](src/QuotaMonitor/Assets/Harness/SOURCES.md) |
+| OpenCode mark | OpenCode and its respective rights holders | [Original source](src/QuotaMonitor/Assets/Harness/SOURCES.md) |
 | DSH / DeepSeek whale | DeepSeek and its respective rights holders | [Original source](src/QuotaMonitor/Assets/Harness/SOURCES.md) |
 | Google Antigravity | Google LLC | [Official Press Assets](https://antigravity.google/press), Icon - White; original SVG retained |
 
 All third-party names, logos and trademarks belong to their respective rights
 holders. QuotaMonitor is an independent personal project. It does not represent
-OpenAI, Anthropic, DeepSeek, ClaudeCN or Google and has no official sponsorship,
-endorsement or affiliation. ClaudeCN is a third-party service, not Anthropic's
-official account interface; the Claude mark does not imply otherwise.
+OpenAI, OpenCode, DeepSeek or Google and has no official sponsorship,
+endorsement or affiliation.
 
 **The project's MIT license does not grant rights to third-party trademarks,
 logos or brand assets.** The same reservation applies to those marks appearing
@@ -27,9 +26,6 @@ permission, and the decision to retain the marks is not proof of authorization.
   terms, including permission, spacing, unchanged artwork and brand prominence.
   No project-specific permission record is retained. Compliance and the scope
   of redistribution rights remain unconfirmed.
-- [Anthropic trademark guidelines](https://www.anthropic.com/legal/trademark-guidelines)
-  require specifically permitted use in materials approved beforehand. No such
-  approval is retained for the embedded favicon or public showcase materials.
 - [DeepSeek Harness brand guidelines](https://github.com/deepseek-ai/deepseek-harness/blob/master/BRAND_GUIDELINES.md)
   permit accurate compatibility descriptions and prohibit misleading official
   presentation. They do not establish permission to redistribute this compact

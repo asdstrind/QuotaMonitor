@@ -63,21 +63,30 @@ public sealed class ProviderViewModel(ProviderSnapshot snapshot) : Observable
     private ProviderSnapshot data=snapshot;
     public ProviderSnapshot Snapshot=>data;
     public string Id=>data.ProviderId;
-    public string Name=>Id=="claude"?"ClaudeCN":data.DisplayName;
+    public string Name=>data.DisplayName;
     public string Accent=>AccentOf(Id);
-    public static string AccentOf(string id)=>id switch{"codex"=>"#19A67A","claude"=>"#E2672F","antigravity"=>"#B59AF7",_=>"#4A8AF0"};
+    public static string AccentOf(string id)=>id switch{"codex"=>"#19A67A","opencode-go"=>"#A6A6A8","antigravity"=>"#B59AF7",_=>"#4A8AF0"};
     public string Status=>Id=="dsh"&&data.ConnectionStatus!=ConnectionStatus.Disabled?BalanceState switch{DshBalanceState.Ready=>"BALANCE LIVE"+(data.ConnectionStatus==ConnectionStatus.Partial?" · USAGE PARTIAL":""),DshBalanceState.Stale=>"BALANCE STALE",_=>"BALANCE UNAVAILABLE"}:data.ConnectionStatus switch{ConnectionStatus.Ready=>IsStale?"STALE":"LIVE",ConnectionStatus.Partial=>"PARTIAL",ConnectionStatus.Disabled=>"OFF",ConnectionStatus.Stale=>"STALE",ConnectionStatus.Loading=>"LOADING",_=>"UNAVAILABLE"};
     private DshBalanceState BalanceState=>data.AccountBalance?.At(DateTimeOffset.UtcNow)??DshBalanceState.Unavailable;
     public bool IsStale=>data.ConnectionStatus==ConnectionStatus.Stale||data.LastUpdated is {} at&&DateTimeOffset.UtcNow-at>TimeSpan.FromMinutes(Id=="dsh"?4:Id=="antigravity"?3:7);
-    public string Compact=>data.ConnectionStatus==ConnectionStatus.Disabled?"—":Id=="dsh"?BalanceState==DshBalanceState.Ready?DshBalancePresentation.Normal(data.AccountBalance?.Balance):BalanceState==DshBalanceState.Stale?"Stale":"—":IsStale?Id=="antigravity"?"Stale":"—":data.ConnectionStatus==ConnectionStatus.Loading||data.ConnectionStatus==ConnectionStatus.Unavailable?"—":Id=="antigravity"?string.Join(" / ",new[]{"gemini-weekly","3p-weekly"}.Select(id=>data.Windows.FirstOrDefault(w=>w.Bucket==id) is {} w?$"{w.RemainingPercent:0}%":"—")):Id=="codex"?data.RemainingPercent is {} p?$"{p:0}%":"—":data.RemainingBalance is {} b?$"{(data.Currency=="CNY"?"¥":"$")}{b:0.00}":"—";
+    public string Compact=>data.ConnectionStatus==ConnectionStatus.Disabled?"—":Id=="dsh"?BalanceState==DshBalanceState.Ready?DshBalancePresentation.Normal(data.AccountBalance?.Balance):BalanceState==DshBalanceState.Stale?"Stale":"—":IsStale?Id=="antigravity"?"Stale":"—":data.ConnectionStatus==ConnectionStatus.Loading||data.ConnectionStatus==ConnectionStatus.Unavailable?"—":Id=="opencode-go"?OpenCodeGoQuota.MostConstrained(data.Windows) is {} go?$"{go.RemainingPercent:0}%":"—":Id=="antigravity"?string.Join(" / ",new[]{"gemini-weekly","3p-weekly"}.Select(id=>data.Windows.FirstOrDefault(w=>w.Bucket==id) is {} w?$"{w.RemainingPercent:0}%":"—")):Id=="codex"?CodexCompactPercent is {} p?$"{p:0}%":"—":data.RemainingBalance is {} b?$"{(data.Currency=="CNY"?"¥":"$")}{b:0.00}":"—";
+    private double? CodexCompactPercent
+    {
+        get
+        {
+            // Codex does not supply the relative capacities of its two windows.
+            // A verified exhausted window is nevertheless an unambiguous hard limit.
+            var bucket=data.Windows.Any(w=>w.Bucket=="codex")?"codex":data.Windows.FirstOrDefault()?.Bucket;
+            return data.Windows.Any(w=>w.Bucket==bucket&&double.IsFinite(w.UsedPercent)&&w.UsedPercent>=100&&!(w.ResetAt is {} reset&&reset<=DateTimeOffset.UtcNow))?0:data.RemainingPercent;
+        }
+    }
     public string CompactUpdated=>Id=="dsh"&&data.AccountBalance?.Balance is {} balance?balance.ObservedAt.LocalDateTime.ToString("HH:mm:ss"):"";
     public string CompactTooltip=>Tooltip;
-    public string Hero=>Id=="dsh"?DshBalancePresentation.Normal(data.AccountBalance?.Balance):Id=="codex"?data.RemainingPercent is {} p?$"{p:0}%":"—":data.RemainingBalance is {} b?$"${b:0.00}":"—";
+    public string Hero=>Id=="dsh"?DshBalancePresentation.Normal(data.AccountBalance?.Balance):Id is "codex" or "opencode-go"?data.RemainingPercent is {} p?$"{p:0}%":"—":data.RemainingBalance is {} b?$"${b:0.00}":"—";
     public string Updated=>Id=="dsh"?data.AccountBalance?.Balance is {} balance?$"余额同步 {balance.ObservedAt.LocalDateTime:MM-dd HH:mm:ss}":"余额尚未同步":data.LastUpdated is {} at?$"{(Id=="antigravity"?"本地读取":"更新")} {at.LocalDateTime:HH:mm:ss}" : "尚未更新";
     public string Error=>string.Join("\n",new[]{data.AccountBalance?.Error,data.ErrorMessage}.Where(x=>!string.IsNullOrEmpty(x)));
     public bool HasError=>!string.IsNullOrEmpty(Error);
     public IEnumerable<MetricRow> Rows=>Id switch{
-        "claude"=>[new("今日使用费用",Money(data.TodayCost)),new("累计使用费用",Money(data.TotalCost)),new("今日请求",Tokens(data.TodayRequests)),new("今日 Token",Tokens(data.TodayTokens)),new("统计更新",data.UsageUpdated?.LocalDateTime.ToString("HH:mm:ss")??"—")],
         "dsh"=>[new("充值钱包 · 原始金额",DshBalancePresentation.Exact(data.AccountBalance?.Balance?.NormalWallets)),new("赠送钱包 · 原始金额",DshBalancePresentation.Exact(data.AccountBalance?.Balance?.BonusWallets)),new("今日已记录 Token",Tokens(data.TodayTokens)),new("累计 Token",Tokens(data.TotalTokens)),new("今日输入含缓存",Tokens(data.InputTokens)),new("今日输出",Tokens(data.OutputTokens)),new("今日费用",data.TodayCost is {} c?$"Estimated {data.Currency} {c:0.000000}":"Unavailable"),new("最近使用模型",data.CurrentModel??"—"),new("最新用量记录",data.UsageUpdated?.LocalDateTime.ToString("MM-dd HH:mm")??"—")],
         _=>[]};
 
@@ -104,6 +113,7 @@ public sealed class ProviderViewModel(ProviderSnapshot snapshot) : Observable
                 var w=data.Windows.FirstOrDefault(w=>w.Bucket==pair.Item1);
                 return new QuotaGauge(pair.Item2,w?.RemainingPercent??0,w is null?"—":w.RemainingPercent.ToString("0",CultureInfo.InvariantCulture),w?.ResetAt is {} r?$"{r.LocalDateTime:MM-dd HH:mm} 重置":"重置时间未知",w is not null&&w.RemainingPercent<=15);
             }).ToArray();
+            if(Id=="opencode-go")return new[]{("rolling","5 小时"),("weekly","每周"),("monthly","每月")}.Select(pair=>{var w=data.Windows.FirstOrDefault(w=>w.Bucket==pair.Item1);return new QuotaGauge(pair.Item2,w?.RemainingPercent??0,w is null?"—":w.RemainingPercent.ToString("0",CultureInfo.InvariantCulture),w?.ResetAt is {} r?Format.Countdown(r-DateTimeOffset.UtcNow):"重置时间未知",w is not null&&w.RemainingPercent<=15);}).ToArray();
             if(data.Windows.Count==0)return [];
             var bucket=data.Windows.Any(w=>w.Bucket=="codex")?"codex":data.Windows[0].Bucket;
             var now=DateTimeOffset.UtcNow;
@@ -111,11 +121,10 @@ public sealed class ProviderViewModel(ProviderSnapshot snapshot) : Observable
                 .Select(w=>new QuotaGauge(Format.Window(w.DurationMinutes),w.RemainingPercent,w.RemainingPercent.ToString("0",CultureInfo.InvariantCulture),w.ResetAt is {} r?Format.Countdown(r-now):"重置时间未知",w.RemainingPercent<=15)).ToArray();
         }
     }
-    public bool HasGauges=>data.Windows.Count>0||Id=="antigravity";
-    public bool IsQuota=>Id is "codex" or "antigravity";
+    public bool HasGauges=>data.Windows.Count>0||Id is "antigravity" or "opencode-go";
+    public bool IsQuota=>Id is "codex" or "antigravity" or "opencode-go";
     public string EmptyText=>data.ConnectionStatus==ConnectionStatus.Disabled?"已在设置中关闭":data.ConnectionStatus==ConnectionStatus.Loading?"正在读取额度":"暂无额度数据";
     private string? AmountText=>Id switch{
-        "claude"=>data.RemainingBalance is {} b?Format.Usd(b):null,
         "dsh"=>data.AccountBalance?.Balance is {} balance&&balance.NormalWallets.Count>0?DshBalancePresentation.Normal(balance):null,
         _=>null};
     public bool HasAmount=>AmountText is not null;
@@ -124,7 +133,6 @@ public sealed class ProviderViewModel(ProviderSnapshot snapshot) : Observable
     public string AmountMinor=>AmountText is {} a?Format.Split(a).Minor:"";
     public string AmountCaption=>Id=="dsh"?"充值余额":"账户余额";
     public string DetailLine=>Id switch{
-        "claude"=>data.TodayCost is {} c?"今日已用 "+Format.Usd(c):"",
         "dsh"=>data.AccountBalance?.Balance is {} balance?balance.BonusWallets.Count==0?"无赠送余额":"赠送 "+string.Join(" + ",balance.BonusWallets.Select(DshBalancePresentation.Wallet)):"",
         _=>""};
     public string Tooltip
@@ -132,20 +140,11 @@ public sealed class ProviderViewModel(ProviderSnapshot snapshot) : Observable
         get
         {
             var lines=new List<string>();
-            if(Id is "codex" or "antigravity"){
+            if(Id is "codex" or "antigravity" or "opencode-go"){
                 lines.Add(Status);
                 foreach(var w in data.Windows)lines.Add($"{w.Bucket} {Format.Window(w.DurationMinutes)}：剩余 {w.RemainingPercent:0.#}%（已用 {w.UsedPercent:0.##}%）"+(w.ResetAt is {} r?$"，{r.LocalDateTime:MM-dd HH:mm} 重置":""));
                 lines.Add(Updated);
                 if(Id=="antigravity")lines.Add("仅两项 Weekly 额度池。服务端未提供数据生成时间；本地读取时间表示响应取得时间。Token 历史独立读取，不按额度反推。");
-            }else if(Id=="claude"){
-                if(data.RemainingBalance is {} b)lines.Add($"账户余额 ${b:0.000000}");
-                if(data.TodayCost is {} c)lines.Add($"今日使用费用 ${c:0.000000}");
-                if(data.TodayRequests is {} q)lines.Add($"今日请求 {q:N0} 次");
-                if(data.TodayTokens is {} t)lines.Add($"今日 Token {t:N0}");
-                if(data.TotalCost is {} total)lines.Add($"累计使用费用 ${total:0.000000}");
-                if(data.BillingPreference is {} pref)lines.Add("结算偏好 "+pref);
-                lines.Add("使用费用按 quota 比例换算，不等同于钱包实际扣款。");
-                lines.Add(data.LastUpdated is {} at?$"更新于 {at.LocalDateTime:HH:mm:ss}":"尚未成功读取");
             }else{
                 lines.Add("充值钱包\n"+DshBalancePresentation.Exact(data.AccountBalance?.Balance?.NormalWallets));
                 lines.Add("赠送钱包\n"+DshBalancePresentation.Exact(data.AccountBalance?.Balance?.BonusWallets));
@@ -168,11 +167,11 @@ public sealed class MonitorViewModel : Observable
     public string MinimalTooltip=>Alerts.Count==0?"靠近显示胶囊 · 点击胶囊展开":"低额度提醒\n"+string.Join("\n",Alerts.Select(a=>a.Description))+"\n靠近显示胶囊 · 点击展开";
     public string FiveHourLight=>Light("codex-5h");
     public string WeeklyLight=>Light("codex-week");
-    public string ClaudeLight=>Light("claude");
+    public string GoLight=>Light("opencode-go");
     public string DshLight=>Light("dsh");
     public string FiveHourMark=>Mark("codex-5h");
     public string WeeklyMark=>Mark("codex-week");
-    public string ClaudeMark=>Mark("claude");
+    public string GoMark=>Mark("opencode-go");
     public string DshMark=>Mark("dsh");
     private string Light(string key)=>Alerts.FirstOrDefault(a=>a.Key==key)?.Color??"#343941";
     private string Mark(string key)=>Alerts.FirstOrDefault(a=>a.Key==key)?.Label??"";
@@ -182,7 +181,7 @@ public sealed class MonitorViewModel : Observable
         if(Alerts.SequenceEqual(next))return;
         Alerts=next;
         Changed(nameof(MinimalAlerts));
-        foreach(var property in new[]{nameof(Alerts),nameof(MinimalTooltip),nameof(FiveHourLight),nameof(WeeklyLight),nameof(ClaudeLight),nameof(DshLight),nameof(FiveHourMark),nameof(WeeklyMark),nameof(ClaudeMark),nameof(DshMark)})Changed(property);
+        foreach(var property in new[]{nameof(Alerts),nameof(MinimalTooltip),nameof(FiveHourLight),nameof(WeeklyLight),nameof(GoLight),nameof(DshLight),nameof(FiveHourMark),nameof(WeeklyMark),nameof(GoMark),nameof(DshMark)})Changed(property);
     }
     public IReadOnlyList<LowQuotaAlert> MinimalAlerts=>LowQuotaAlerts.Minimal(Alerts);
     public ObservableCollection<ProviderViewModel> Providers {get;}=[];
@@ -199,7 +198,7 @@ public sealed class MonitorViewModel : Observable
         Changed(nameof(VisibleProviders));Changed(nameof(HasVisibleProviders));Changed(nameof(NoVisibleProviders));Changed(nameof(HoverLane));Changed(nameof(FocusLane));IntensityChanged();Changed(nameof(HeatmapMode));UpdateAlerts(settings);
     }
     public ProviderViewModel Codex=>Providers.First(p=>p.Id=="codex");
-    public ProviderViewModel Claude=>Providers.First(p=>p.Id=="claude");
+    public ProviderViewModel Go=>Providers.First(p=>p.Id=="opencode-go");
     public ProviderViewModel Dsh=>Providers.First(p=>p.Id=="dsh");
     public ProviderViewModel Antigravity=>Providers.First(p=>p.Id=="antigravity");
     public ICommand RefreshCommand {get;set;}=null!;
@@ -240,7 +239,7 @@ public sealed class MonitorViewModel : Observable
     private DayTip? tip;
     public DayTip? Tip{get=>tip;private set{tip=value;Changed();}}
 
-    public static string NameOf(string id)=>id switch{"codex"=>"Codex","claude"=>"ClaudeCN","antigravity"=>"Antigravity",_=>"DSH"};
+    public static string NameOf(string id)=>id switch{"codex"=>"Codex","opencode-go"=>"OpenCode Go","antigravity"=>"Antigravity",_=>"DSH"};
     public void SetScale(bool value){relative=value;Changed(nameof(RelativeScale));Changed(nameof(UnifiedScale));}
     public void UpdateHistory(UsageHistory history,DateOnly today){histories[history.ProviderId]=history;Rebuild(today);}
     public void Tick(DateOnly today){if(today!=gridDay)Rebuild(today);}
@@ -260,15 +259,18 @@ public sealed class MonitorViewModel : Observable
             if(h.Scope.Length>0)lines.Add("统计范围："+h.Scope);
             if(h.Source.Length>0)lines.Add("数据来源："+h.Source);
         }
-        lines.Add("指标：每日 Token（输入含缓存命中 + 输出）");
+        lines.Add(p.Id=="opencode-go"?"指标：UTC 日 Token（普通输入 + 输出 + 缓存读取 + 缓存写入）":"指标：每日 Token（输入含缓存命中 + 输出）");
         if(p.CoveredDays>0){
             lines.Add($"近 {Grid.Weeks} 周内有记录 {p.CoveredDays} 天，自 {p.CoverageStart:yyyy-MM-dd} 起；其中有用量 {p.ActiveDays} 天");
-            lines.Add($"合计 {p.Tokens:N0} Token，{p.Requests:N0} 次请求");
-            if(p.Cost is {} cost)lines.Add((h?.CostEstimated==true?"估算费用 ":"使用费用 ")+Format.Money(cost,h?.CostCurrency));
         }else lines.Add("窗口内没有可用记录");
+        if(p.Cumulative.Start is {} first){
+            lines.Add($"已保存历史 {first:yyyy-MM-dd} 至 {p.Cumulative.End:yyyy-MM-dd}");
+            lines.Add($"合计 {p.Cumulative.Tokens?.ToString("N0")??"—"} Token，{p.Cumulative.Requests?.ToString("N0")??"—"} 次请求");
+            if(p.Cumulative.Cost is {} cost)lines.Add((h?.CostEstimated==true?"估算费用 ":"使用费用 ")+Format.Money(cost,h?.CostCurrency));
+        }
         if(h?.Note is {} note)lines.Add(note);
         if(h?.Error is {} error&&error!=Core.Services.HistoryCoordinator.Disabled)lines.Add(error);
-        var total=p.CoveredDays>0?Format.Tokens(p.Tokens):"—";
+        var total=p.Cumulative.Tokens is {} amount?Format.Tokens(amount):"—";
         if(p.Id=="antigravity")
         {
             if(h?.Error==Core.Services.HistoryCoordinator.Disabled)status="已关闭";
@@ -282,7 +284,7 @@ public sealed class MonitorViewModel : Observable
     {
         // Reliability remains in GridLane/UsageHistory; the day panel contains data only.
         var shown=day.Lanes.Where(l=>visibleIds.Contains(l.ProviderId)).ToArray();
-        var rows=shown.Select(l=>new TipRow(NameOf(l.ProviderId),ProviderViewModel.AccentOf(l.ProviderId),
+        var rows=shown.Select(l=>new TipRow(NameOf(l.ProviderId)+(l.ProviderId=="opencode-go"?" · UTC":""),ProviderViewModel.AccentOf(l.ProviderId),
             l.Tokens is {} n?n.ToString("N0",CultureInfo.InvariantCulture):"—","",null)).ToArray();
         var total=GridDayTotal(shown);
         return new DayTip(Format.Day(day.Date)+(day.IsToday?"  今天":""),rows,

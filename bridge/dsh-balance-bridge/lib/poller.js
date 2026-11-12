@@ -13,6 +13,7 @@ export class BalancePoller {
     this.clearTimer = options.clearTimer ?? clearTimeout;
     this.now = options.now ?? (() => new Date());
     this.client = options.client ?? (() => ({ version: '0.2.0-rc.2', locale: Intl.DateTimeFormat().resolvedOptions().locale, timezoneOffsetSeconds: -new Date().getTimezoneOffset() * 60 }));
+    this.diagnose = options.diagnose ?? (() => {});
     this.epoch = 0;
     this.failures = 0;
     this.stop = new AbortController();
@@ -20,6 +21,11 @@ export class BalancePoller {
   start() {
     // A restarted Host cannot attest which account produced a previous cache.
     this.publish({ state: 'signed-out' });
+    if (!['getState', 'getBalance', 'watch'].every(key => typeof this.account?.[key] === 'function')) {
+      this.diagnose('host-api-incompatible');
+      this.publish({ state: 'unavailable' });
+      return () => this.dispose();
+    }
     this.schedule(0);
     void this.watch();
     return () => this.dispose();
@@ -47,7 +53,7 @@ export class BalancePoller {
         status = state.status;
       }
     } catch {
-      if (!this.stop.signal.aborted) this.publish({ state: 'unavailable' });
+      if (!this.stop.signal.aborted) { this.diagnose('host-api-watch-failed'); this.publish({ state: 'signed-out' }); this.dispose(); this.publish({ state: 'unavailable' }); }
     }
   }
   async refresh() {
@@ -59,27 +65,32 @@ export class BalancePoller {
     let timedOut = false, delay = this.interval;
     const current = () => !this.stop.signal.aborted && epoch === this.epoch;
     try {
+      this.watchdog = this.setTimer(() => {
+        timedOut = true;
+        if (current()) { this.diagnose('host-api-timeout'); this.publish({ state: 'failed' }); }
+      }, this.timeout);
+      this.watchdog?.unref?.();
       const state = await this.account.getState();
       if (!current()) return;
       if (state.status === 'signed-out') { this.publish({ state: 'signed-out' }); return; }
       if (state.status !== 'credential-stored') throw new Error('account unavailable');
       // Do not turn a successful balance stale during a routine refresh.
-      this.watchdog = this.setTimer(() => {
-        timedOut = true;
-        if (current()) this.publish({ state: 'failed' });
-      }, this.timeout);
-      this.watchdog?.unref?.();
+      if (timedOut) throw new Error('account timeout');
       const result = await this.account.getBalance(this.client());
       if (!current()) return;
       if (timedOut || result?.status !== 'ready') throw new Error('balance unavailable');
-      const value = { state: 'ready', observedAt: this.now().toISOString(), normal_wallets: wallets(result.value), bonus_wallets: wallets(result.bonusWallets) };
+      let value;
+      try { value = { state: 'ready', observedAt: this.now().toISOString(), normal_wallets: wallets(result.value), bonus_wallets: wallets(result.bonusWallets) }; }
+      catch { this.diagnose('host-api-invalid-wallets'); throw new Error('invalid wallets'); }
       // The official service returns null when its captured account lifetime changes.
       // Our epoch additionally prevents already-resolved results crossing record updates.
       if (!current()) return;
       this.publish(value);
+      this.diagnose('host-api-ready');
       this.failures = 0;
     } catch {
       if (current()) {
+        this.diagnose('host-api-query-failed');
         this.publish({ state: 'failed' });
         delay = Math.min(this.retryMax, this.retryBase * 2 ** Math.min(this.failures++, 10));
       }

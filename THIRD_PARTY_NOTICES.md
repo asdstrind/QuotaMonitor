@@ -1,6 +1,6 @@
 # Third-party licenses and notices
 
-QuotaMonitor v1.6.4 and Balance Bridge 1.2.0 use the project [MIT license](LICENSE).
+QuotaMonitor v1.7.0 and Balance Bridge 1.3.0 use the project [MIT license](LICENSE).
 Third-party software keeps its own terms. Third-party logos, names and marks
 are excluded from the project MIT grant; see [TRADEMARKS.md](TRADEMARKS.md).
 
@@ -29,12 +29,14 @@ is independently implemented; their source code is not bundled. See
 ## Bridge host (not bundled)
 
 The Bridge is original project JavaScript; its peer packages are supplied by
-the user's compatible DSH installation: `@deepseek-ai/cordis ~4.0.4`,
-`@deepseek-ai/dsh-typert-protocol 0.2.0-rc.2`, and
-`@deepseek-ai/dsh-credentials 0.2.0-rc.2`. Their installed metadata declares MIT.
-Optional integration tests also use matching registry, gateway, app-boot and
-deepseek-account-platform packages. These packages and the official account
-service are not copied into the repository or the desktop release.
+the user's compatible DSH installation: `@deepseek-ai/cordis` (`~4.0.4`),
+`@deepseek-ai/dsh-credentials` and `@deepseek-ai/dsh-app-boot` (both
+`>=0.2.0-rc.2 <0.3.0-0 || >=0.2.1-0 <0.3.0-0`). Bridge 1.3.0 no longer depends
+on Typert or the renderer balance Remote. The peer metadata of the installed
+packages declares MIT. Optional integration tests additionally use matching
+`dsh-typert-registry`, `dsh-api-gateway`, `dsh-app-boot` and
+`dsh-deepseek-account-platform` packages. These packages and the official
+account service are not copied into the repository or the desktop release.
 [DeepSeek Harness license](licenses/DeepSeek-Harness-MIT.txt) is retained for
 reference; it does not grant logo/trademark permission.
 

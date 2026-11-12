@@ -37,10 +37,10 @@ public class AlertReadout : FrameworkElement
             var dual=a.SecondValue is not null;
             var weekly=a.Key=="antigravity";
             string ShortLabel(string value)=>value=="Gem"?"Gemini":"Claude/GPT";
-            var value=a.Key.StartsWith("codex",StringComparison.Ordinal)?a.Value[(a.Value.IndexOf(' ')+1)..]:a.Value;
+            var value=(a.Key.StartsWith("codex",StringComparison.Ordinal)||a.Key.StartsWith("go-",StringComparison.Ordinal))?a.Value[(a.Value.IndexOf(' ')+1)..]:a.Value;
             var text=Text(value,16,"#F2F3F5");
             var second=dual?Text(a.SecondValue!,16,"#F2F3F5"):null;
-            var label=Text(weekly?ShortLabel(a.Label):a.Key.StartsWith("codex",StringComparison.Ordinal)?(a.Key=="codex-week"?"7d":"5h"):a.Key=="claude"?"USD":"CNY" ,10.5,"#7A808A");
+            var label=Text(weekly?ShortLabel(a.Label):a.Key.StartsWith("codex",StringComparison.Ordinal)?(a.Key=="codex-week"?"7d":"5h"):a.Key.StartsWith("go-",StringComparison.Ordinal)?a.Label:"CNY" ,10.5,"#7A808A");
             if(a.Key=="dsh")label=Text(a.Value.StartsWith("¥",StringComparison.Ordinal)?"CNY":"USD",10.5,"#7A808A");
             var secondLabel=dual?Text(ShortLabel(a.SecondLabel!),10.5,"#7A808A"):null;
             var firstWidth=text.WidthIncludingTrailingWhitespace+(label is null?0:label.Width+6);
@@ -52,7 +52,7 @@ public class AlertReadout : FrameworkElement
         var x=-width/2+14;
         foreach(var run in runs)
         {
-            var key=run.Alert.Key.StartsWith("codex",StringComparison.Ordinal)?"codex":run.Alert.Key;
+            var key=run.Alert.Key.StartsWith("codex",StringComparison.Ordinal)?"codex":run.Alert.Key.StartsWith("go-",StringComparison.Ordinal)?"opencode-go":run.Alert.Key;
             var slot=slots.FirstOrDefault(s=>s.Key==key);
             if(slot is null) { slot=new(key,x);slots.Add(slot); }
             slot.Text=run.Text;slot.Ink=(Brush)new BrushConverter().ConvertFromString(run.Alert.Color)!;slot.Ink.Freeze();
@@ -60,7 +60,7 @@ public class AlertReadout : FrameworkElement
             if(animate){slot.X.Retarget(x,now,.24);slot.Alpha.Retarget(1,now,.18);}else{slot.X.Set(x);slot.Alpha.Set(1);}
             x+=run.Width+18;
         }
-        var keys=runs.Select(r=>r.Alert.Key.StartsWith("codex",StringComparison.Ordinal)?"codex":r.Alert.Key).ToHashSet();
+        var keys=runs.Select(r=>r.Alert.Key.StartsWith("codex",StringComparison.Ordinal)?"codex":r.Alert.Key.StartsWith("go-",StringComparison.Ordinal)?"opencode-go":r.Alert.Key).ToHashSet();
         foreach(var slot in slots.Where(s=>!keys.Contains(s.Key))) { if(animate)slot.Alpha.Retarget(0,now,.18);else slot.Alpha.Set(0); }
         Frame(now);
     }

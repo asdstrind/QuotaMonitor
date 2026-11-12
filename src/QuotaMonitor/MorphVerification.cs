@@ -44,7 +44,7 @@ public partial class App
             {
                 var now=DateTimeOffset.UtcNow;
                 model.Codex.Update(new(){ProviderId="codex",DisplayName="Codex",LastUpdated=now,ConnectionStatus=ConnectionStatus.Ready,RemainingPercent=(mask&1)>0?12:90,Windows=[new("codex","Primary",(mask&1)>0?88:10,300,now.AddHours(1)),new("codex","Secondary",(mask&2)>0?92:10,10080,now.AddDays(1))]});
-                model.Claude.Update(new(){ProviderId="claude",DisplayName="Claude",LastUpdated=now,ConnectionStatus=ConnectionStatus.Partial,RemainingBalance=(mask&4)>0?.52m:100,Currency="USD"});
+                model.Go.Update(new(){ProviderId="opencode-go",DisplayName="OpenCode Go",MetricType=MetricType.Quota,LastUpdated=now,ConnectionStatus=ConnectionStatus.Ready,RemainingPercent=12,Windows=[new("rolling","5 小时",88,300,now.AddHours(2)),new("weekly","每周",91,10080,now.AddDays(2)),new("monthly","每月",94,null,now.AddDays(12))]});
                 model.Dsh.Update(new(){ProviderId="dsh",DisplayName="DSH",ConnectionStatus=ConnectionStatus.Partial,AccountBalance=new(new([new("CNY",(mask&8)>0?".80":"100")],[],now,"verification fixture"),DshBalanceState.Ready,null)});
                 model.UpdateAlerts(settings,now);
             }

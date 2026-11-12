@@ -1,9 +1,11 @@
 // Whitelist amounts only. Never copy the AccountView, profile, URLs, or credentials.
-const decimal = /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
+const decimal = /^-?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:e([+-]?[0-9]+))?$/i;
 export function wallets(value) {
   if (!Array.isArray(value) || value.length > 8) throw new Error('wallet schema');
   return value.map(row => {
-    if (!row || !['CNY', 'USD'].includes(row.currency) || typeof row.balance !== 'string' || row.balance.length > 256 || !decimal.test(row.balance)) throw new Error('wallet schema');
+    if (!row || !['CNY', 'USD'].includes(row.currency) || typeof row.balance !== 'string' || row.balance.length > 256) throw new Error('wallet schema');
+    const match = decimal.exec(row.balance);
+    if (!match || match[0] !== row.balance || (match[1] !== undefined && Math.abs(Number(match[1])) > 1000)) throw new Error('wallet schema');
     return { currency: row.currency, balance: row.balance };
   });
 }
