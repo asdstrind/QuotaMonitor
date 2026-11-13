@@ -40,7 +40,7 @@ Bridge 1.3.0 使用 `engines.dsh >=0.2.0-rc.2 <0.3.0-0`，实际检查器使用 
 ./tools/package-release.ps1
 ```
 
-这个本地脚本生成 csproj 定义版本（当前 v1.7.0）的 Windows x64 自包含 ZIP、SHA-256 文件，以及 Bridge 1.3.0 源码和完整许可证目录。它把 `docs/RELEASE-v<version>.md` 复制为包内 `README.md`，只附公开配置、历史边界和运行说明，不附内部验收报告、截图或审计材料。不提交或上传任何内容。它关闭调试符号，并将编译路径映射到中性路径；已有输出时拒绝覆盖。第三方 Logo 的独立授权风险仍见 [TRADEMARKS.md](TRADEMARKS.md)。
+这个本地脚本生成 csproj 定义版本（当前 v1.7.1）的 Windows x64 自包含 ZIP、SHA-256 文件，以及 Bridge 1.3.0 源码和完整许可证目录。它把 `docs/RELEASE-v<version>.md` 复制为包内 `README.md`，只附公开配置、历史边界和运行说明，不附内部验收报告、截图或审计材料。不提交或上传任何内容。它关闭调试符号，并将编译路径映射到中性路径；已有输出时拒绝覆盖。第三方 Logo 的独立授权风险仍见 [TRADEMARKS.md](TRADEMARKS.md)。
 
 `NuGet.Config` 只使用公开 nuget.org 源，不依赖本机私有包源。如果出现 NU1900，请先恢复漏洞源网络连接。只为了检查编译时，可以临时加 `-p:NuGetAudit=false`；这不代表在线漏洞审计通过，也不应修改仓库默认 NuGetAudit=true。
 

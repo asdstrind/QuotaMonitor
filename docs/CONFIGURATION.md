@@ -78,4 +78,4 @@ Go 的历史保留服务端 UTC 日期；Tooltip 标有 UTC，不转换为精确
 
 本项目与 OpenAI、Anthropic、DeepSeek、OpenCode、Google 无隶属或背书关系。额度依赖接口版本；本地历史不代表账户全历史，估算费用不代表账单，余额可能过期。请以服务商官方页面为准。后台使用系统默认网络配置，部署者应自行核对代理环境。
 
-当前源码版本为 v1.7.0，Bridge 为 1.3.0。项目源码及原创资源采用 [MIT](../LICENSE)；第三方 Logo 不在 MIT 授权范围内，授权状态见 [TRADEMARKS.md](../TRADEMARKS.md)。
+当前源码版本为 v1.7.1，Bridge 为 1.3.0。项目源码及原创资源采用 [MIT](../LICENSE)；第三方 Logo 不在 MIT 授权范围内，授权状态见 [TRADEMARKS.md](../TRADEMARKS.md)。

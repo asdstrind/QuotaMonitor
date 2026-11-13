@@ -1,0 +1,54 @@
+{
+  "product": "QuotaMonitor",
+  "version": "1.7.1",
+  "generatedUtc": "2026-11-13T11:55:00+08:00",
+  "syntheticDemoData": true,
+  "statement": "Only the three public assets affected by the v1.7.1 OpenCode Go compact-label fix were refreshed and live in this folder. Every one is derived from the same synthetic demo data as the v1.7.0 artwork: invented quota percentages, balances and token totals only. No real account balances, API keys, account IDs, emails, private paths or personal usage appear, and every image carries the permanent SYNTHETIC DEMO DATA marker. The PNGs are offline renders of the unchanged production WPF views; quota.gif is a real screen capture of the packaged v1.7.1 preview window driven by the app's synthetic fixture. No desktop outside the application window is captured.",
+  "provenance": "docs/media/PROVENANCE.md",
+  "note": "docs/media/v1.7.0/ is preserved byte-identically. Only the OpenCode Go monthly compact alert label changed (\"月\" -> \"1mo\"); the Expanded/Settings Chinese labels, thresholds, colours and all other UI behaviour are unchanged, so only assets that visibly showed the old label were regenerated.",
+  "capture": {
+    "method": "Real screen capture of the packaged QuotaMonitor v1.7.1 preview executable (--preview-v170, synthetic fixture only), recorded with tools/capture-v170/capture-preview.ps1 and composed with tools/capture-v170/encode-gifs.py",
+    "executableSha256": "c7e01f9a5c71c551a9361adf9cfb5534ee1c4f79ad60afafe1174cf2f199c686",
+    "executableVersion": "1.7.1",
+    "note": "This is the self-contained win-x64 v1.7.1 QA build published for independent verification (ProductVersion 1.7.1). The capture fixture is synthetic and the only desktop region recorded is the application window rectangle."
+  },
+  "assets": [
+    {
+      "file": "docs/media/v1.7.1/alert-minimal.png",
+      "description": "Alert Minimal low-quota capsules from the production alert evaluator; the OpenCode Go capsule now reads \"1mo 6%\" instead of \"月 6%\".",
+      "method": "Offline RenderTargetBitmap of the unchanged production WPF views via tools/QuotaMonitor.Showcase (synthetic invented data, no adapters/network/account/credential/production-store access), composed by tools/compose-showcase.py with the v1.7.1 public footer stamp. Not a screen recording.",
+      "dimensions": "1440x344",
+      "bytes": 85574,
+      "sha256": "345b211a607d2c7fef48b9868a89714759779e9b6b3dbfa9e90f5711078e3063",
+      "syntheticDemoData": true
+    },
+    {
+      "file": "docs/media/v1.7.1/states.png",
+      "description": "Minimal / Collapsed / Expanded / Alert Minimal presentation; the Alert Minimal row shows the fixed \"1mo\" OpenCode Go capsule while the Expanded row keeps the Chinese 5 小时 / 每周 / 每月 labels.",
+      "method": "Offline RenderTargetBitmap of the unchanged production WPF views via tools/QuotaMonitor.Showcase (synthetic invented data, no adapters/network/account/credential/production-store access), composed by tools/compose-showcase.py with the v1.7.1 public footer stamp. Not a screen recording.",
+      "dimensions": "1440x1448",
+      "bytes": 312494,
+      "sha256": "fe5f2689b2549bc138534b9c2a529cb65a7f64a98b88f04525a4c4f08926962d",
+      "syntheticDemoData": true
+    },
+    {
+      "file": "docs/media/v1.7.1/quota.gif",
+      "description": "Real window capture: four-provider quota, collapsed limiting values, and the fixed low-quota Alert Minimal capsule reading \"1mo 6%\".",
+      "method": "Real screen capture of the packaged QuotaMonitor 1.7.1 --preview-v170 window (synthetic preview fixture only) by tools/capture-v170/capture-preview.ps1; the preview window's flat synthetic background is keyed out and the captured island is composed on the shared stage by tools/capture-v170/encode-gifs.py. Only the application window rectangle is recorded, never the desktop.",
+      "dimensions": "1100x840",
+      "bytes": 2140851,
+      "sha256": "2d8bd156c8a3340fc9cf4da658851657bd8e91cc705a102cbacb2dd13acb6904",
+      "syntheticDemoData": true,
+      "frames": 109,
+      "durationSeconds": 6.96,
+      "loop": true
+    }
+  ],
+  "unchanged": [
+    {
+      "file": "docs/media/v1.7.0/",
+      "note": "All v1.7.0 public assets are preserved byte-identically (alert-minimal.png sha256 60b30b26..., states.png sha256 980f48af..., quota.gif sha256 95e1bd33...)."
+    }
+  ],
+  "problems": []
+}

@@ -62,3 +62,25 @@ Third-party logos appearing in the views remain outside MIT; see
 
 The earlier 1.6.4 artwork (`overview.png`, `details.png`, `island.gif`) is retained at the top
 level of this folder for the previous release notes.
+
+## v1.7.1 media refresh
+
+QuotaMonitor **1.7.1** is a patch release whose only product change is the OpenCode Go monthly
+low-quota compact label: `月` → `1mo` (the Expanded view keeps its Chinese `5 小时 / 每周 / 每月`
+labels, Settings stays Chinese, and thresholds, colours and all other behaviour are unchanged).
+Only the three public assets that visibly showed the old label were refreshed, into
+[`v1.7.1/`](v1.7.1/); the machine-readable manifest with sizes, SHA256 digests and per-asset
+methods is [`v1.7.1/asset-manifest.json`](v1.7.1/asset-manifest.json).
+
+| Asset | Method |
+| --- | --- |
+| `v1.7.1/alert-minimal.png` | Same offline render + composition pipeline as v1.7.0 (Showcase + compose-showcase.py, v1.7.1 footer stamp); the OpenCode Go capsule now reads `1mo 6%` |
+| `v1.7.1/states.png` | Same offline render + composition pipeline; Alert Minimal row shows `1mo`, Expanded row keeps `5 小时 / 每周 / 每月` |
+| `v1.7.1/quota.gif` | New **real screen capture** of the packaged 1.7.1 preview executable (ProductVersion 1.7.1, SHA256 `c7e01f9a5c71c551a9361adf9cfb5534ee1c4f79ad60afafe1174cf2f199c686`) in `--preview-v170` mode; 1100×840, 109 stored frames, 6.96 s, synthetic fixture only |
+
+The capture and composition tooling is unchanged apart from the public v1.7.1 version strings.
+**`docs/media/v1.7.0/` is preserved byte-identically**, and all other v1.7.1 artwork is unchanged
+from v1.7.0. The synthetic-data, privacy and metadata statements above still apply: every refreshed
+asset contains invented fixture values only, carries the permanent **SYNTHETIC DEMO DATA** marker,
+and contains no EXIF, textual metadata or GIF comment blocks; only the application window rectangle
+is recorded, never the desktop or other applications.

@@ -1,6 +1,6 @@
 # 凭证与个人数据边界 / Security & Privacy
 
-QuotaMonitor v1.7.0 只管理自己的数据：唯一的密钥是 OpenCode Go 的 Console 只读 API Key，保存在 Windows 凭据管理器；其余连接复用官方客户端的登录或本地服务。所有个人数据保存在本机，不上传，也没有埋点。
+QuotaMonitor v1.7.1 只管理自己的数据：唯一的密钥是 OpenCode Go 的 Console 只读 API Key，保存在 Windows 凭据管理器；其余连接复用官方客户端的登录或本地服务。所有个人数据保存在本机，不上传，也没有埋点。
 
 **English summary:** QuotaMonitor stores exactly one secret — your OpenCode Go Console read-only API key — as the Windows Credential Manager generic credential `QuotaMonitor/OpenCodeGo/ConsoleReadOnlyApiKey`. No credentials are bundled. Settings, balance snapshots and daily token aggregates live under `%LOCALAPPDATA%\QuotaMonitor`; they contain no tokens but are still personal data. There is no telemetry, no account and no cloud relay, and the public screenshots use synthetic demo data only.
 

@@ -136,7 +136,7 @@ def draw_header(im, title, subtitle=None, title_size=40):
 def draw_footer(im, note):
     draw = ImageDraw.Draw(im)
     draw.text((46, im.height - 40), note, font=font(13), fill=(104, 118, 120))
-    version = "v1.7.0"
+    version = "v1.7.1"
     f = font(13, "semibold")
     width = text_width(draw, version, f) + 24
     x = im.width - 46 - width

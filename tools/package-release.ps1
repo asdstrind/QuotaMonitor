@@ -1,4 +1,4 @@
-param([string]$OutputDirectory='publish\v1.7.0-win-x64',[switch]$SkipOnlineAudit)
+param([string]$OutputDirectory='publish\v1.7.1-win-x64',[switch]$SkipOnlineAudit)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
 $version=([xml](Get-Content -LiteralPath (Join-Path $root 'src\QuotaMonitor\QuotaMonitor.csproj') -Raw)).Project.PropertyGroup.Version

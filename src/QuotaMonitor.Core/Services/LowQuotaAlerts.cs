@@ -52,7 +52,7 @@ public static class LowQuotaAlerts
             var windows = go ? new[] {
                 ("rolling", settings.GoFiveHourLowPercent, "go-5h", "5h"),
                 ("weekly", settings.GoWeeklyLowPercent, "go-week", "7d"),
-                ("monthly", settings.GoMonthlyLowPercent, "go-month", "月") }
+                ("monthly", settings.GoMonthlyLowPercent, "go-month", "1mo") }
                 : new[] { ("300", settings.CodexFiveHourLowPercent, "codex-5h", "5h"), ("10080", settings.CodexWeeklyLowPercent, "codex-week", "W") };
             foreach (var (windowId, threshold, key, label) in windows)
             {

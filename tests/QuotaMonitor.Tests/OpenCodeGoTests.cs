@@ -150,4 +150,50 @@ public sealed class OpenCodeGoTests
         var clock=new Clock();var handler=new Handler(_=>Response(clock.Now==Now?Quota():"[]"));using var http=new HttpClient(handler);var a=new OpenCodeGoAdapter(http,new(),new Secret(),clock);var first=await a.RefreshAsync(true,default);clock.Now=clock.Now.AddMinutes(3);var stale=await a.RefreshAsync(true,default);Assert.Equal(ConnectionStatus.Stale,stale.ConnectionStatus);Assert.Equal(first.Windows,stale.Windows);
         using var bad=new HttpClient(new Handler(_=>new(HttpStatusCode.OK){Content=new ByteArrayContent([0xff,0xfe,0xff])}));var result=await new OpenCodeGoAdapter(bad,new(),new Secret()).RefreshAsync(true,default);Assert.Equal(ConnectionStatus.Unavailable,result.ConnectionStatus);Assert.Null(result.RemainingPercent);
     }
+    [Fact] public void GoAlertsUseCompactReleaseUnitsForEveryWindow()
+    {
+        var alerts=LowQuotaAlerts.Evaluate([OpenCodeGoAdapter.ParseQuota(Quota(),Now)],new(),Now);
+        Assert.Equal(new[]{"5h","7d","1mo"},alerts.Select(a=>a.Label));
+        Assert.Equal(new[]{"5h 7%","7d 7%","1mo 7%"},alerts.Select(a=>a.Value));
+        Assert.All(alerts,a=>Assert.Equal("#A6A6A8",a.Color));
+        foreach(var (key,name) in new[]{("go-5h","5 小时"),("go-week","每周"),("go-month","每月")})
+        {
+            var a=alerts.Single(x=>x.Key==key);
+            Assert.Contains("OpenCode Go",a.Description);Assert.Contains(name,a.Description);
+            Assert.Contains("剩余 7%",a.Description);Assert.Contains("低于 15%",a.Description);
+        }
+    }
+    [Fact] public void MonthlyOnlyGoAlertUses1moInOneMinimalSlot()
+    {
+        var s=OpenCodeGoAdapter.ParseQuota(Quota(0),Now);s=s with{Windows=s.Windows.Select(w=>w with{UsedPercent=w.Bucket=="monthly"?97:20}).ToArray()};
+        var alerts=LowQuotaAlerts.Evaluate([s],new(),Now);var alert=Assert.Single(alerts);
+        Assert.Equal("go-month",alert.Key);Assert.Equal("1mo",alert.Label);Assert.Equal("1mo 3%",alert.Value);Assert.Contains("每月",alert.Description);
+        var minimal=Assert.Single(LowQuotaAlerts.Minimal(alerts));
+        Assert.Equal("go-month",minimal.Key);Assert.Equal("1mo",minimal.Label);Assert.Equal("1mo 3%",minimal.Value);
+        Assert.Empty(LowQuotaAlerts.Evaluate([s],new(){GoMonthlyLowPercent=3},Now));
+        Assert.Empty(LowQuotaAlerts.Evaluate([s with{ConnectionStatus=ConnectionStatus.Stale}],new(),Now));
+    }
+    [Fact] public void AllThreeGoWindowsStayIndependentAndMonthlyWinsMinimalSlot()
+    {
+        var alerts=LowQuotaAlerts.Evaluate([OpenCodeGoAdapter.ParseQuota(Quota(),Now)],new(),Now);
+        Assert.Equal(new[]{"go-5h","go-week","go-month"},alerts.Select(a=>a.Key));
+        Assert.Equal(3,alerts.Select(a=>a.Key).Distinct().Count());
+        var minimal=LowQuotaAlerts.Minimal(alerts);
+        Assert.Single(minimal,a=>a.Key.StartsWith("go-",StringComparison.Ordinal));
+        Assert.Equal("go-month",Assert.Single(minimal).Key);Assert.Equal("1mo",minimal[0].Label);Assert.Equal("1mo 7%",minimal[0].Value);
+    }
+    [Fact] public void OtherHarnessCompactLabelsStayUnchanged()
+    {
+        // AlertReadout keeps its own compact literals: codex-week shows "7d", dsh shows CNY/USD from the wallet symbol. These assertions pin the unchanged core inputs.
+        var codex=new ProviderSnapshot{ProviderId="codex",DisplayName="Codex",ConnectionStatus=ConnectionStatus.Ready,LastUpdated=Now,Windows=[new("codex","Primary",90,300,Now.AddHours(1)),new("codex","Secondary",90,10080,Now.AddDays(1))]};
+        var c=LowQuotaAlerts.Evaluate([codex],new(),Now).ToDictionary(a=>a.Key);
+        Assert.Equal("5h",c["codex-5h"].Label);Assert.Equal("5h 10%",c["codex-5h"].Value);Assert.Equal("#19A67A",c["codex-5h"].Color);
+        Assert.Equal("W",c["codex-week"].Label);Assert.Equal("7d 10%",c["codex-week"].Value);Assert.Equal("#19A67A",c["codex-week"].Color);
+        var cny=new ProviderSnapshot{ProviderId="dsh",DisplayName="DSH",ConnectionStatus=ConnectionStatus.Partial,AccountBalance=new(new([new("CNY","4")],[new("CNY","100")],Now,"test"),DshBalanceState.Ready,null)};
+        var cnyAlert=Assert.Single(LowQuotaAlerts.Evaluate([cny],new(),Now));
+        Assert.Equal("dsh",cnyAlert.Key);Assert.Equal("D",cnyAlert.Label);Assert.Equal("#4A8AF0",cnyAlert.Color);
+        Assert.Equal("¥4.00",cnyAlert.Value);Assert.Contains("低于 CNY 5",cnyAlert.Description);
+        var usd=cny with{AccountBalance=new(new([new("USD","1")],[],Now,"test"),DshBalanceState.Ready,null)};
+        Assert.Equal("$1.00",Assert.Single(LowQuotaAlerts.Evaluate([usd],new(){DshAlertCurrency="USD"},Now)).Value);
+    }
 }

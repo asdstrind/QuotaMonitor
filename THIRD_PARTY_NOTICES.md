@@ -1,6 +1,6 @@
 # Third-party licenses and notices
 
-QuotaMonitor v1.7.0 and Balance Bridge 1.3.0 use the project [MIT license](LICENSE).
+QuotaMonitor v1.7.1 and Balance Bridge 1.3.0 use the project [MIT license](LICENSE).
 Third-party software keeps its own terms. Third-party logos, names and marks
 are excluded from the project MIT grant; see [TRADEMARKS.md](TRADEMARKS.md).
 

@@ -95,7 +95,7 @@ def make_base(label, caption):
     draw.text((CANVAS_W - 34 - width + 27, 39), stamp, font=f, fill=STAMP_INK)
     draw.text((40, CANVAS_H - 92), caption, font=font(15), fill=TEXT_SOFT)
     draw.text((41, CANVAS_H - 64),
-              "SYNTHETIC DEMO DATA · real screen capture of QuotaMonitor v1.7.0 --preview-v170 · no real account",
+              "SYNTHETIC DEMO DATA · real screen capture of QuotaMonitor v1.7.1 --preview-v170 · no real account",
               font=font(12), fill=MUTED)
     return base.convert("RGBA")
 

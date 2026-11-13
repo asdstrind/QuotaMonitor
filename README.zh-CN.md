@@ -6,12 +6,12 @@
 <p align="center">Codex · DSH（DeepSeek Harness）· Antigravity · OpenCode Go</p>
 
 <p align="center">
-  <a href="https://github.com/asdstrind/QuotaMonitor/releases/latest"><strong>下载 v1.7.0（Windows 11 x64）</strong></a><br>
-  <sub><code>QuotaMonitor-v1.7.0-win-x64.zip</code> · 自带运行时，无需安装器，无需管理员权限</sub>
+  <a href="https://github.com/asdstrind/QuotaMonitor/releases/latest"><strong>下载 v1.7.1（Windows 11 x64）</strong></a><br>
+  <sub><code>QuotaMonitor-v1.7.1-win-x64.zip</code> · 自带运行时，无需安装器，无需管理员权限</sub>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.7.0-5B8DEF?style=flat-square" alt="版本 1.7.0">
+  <img src="https://img.shields.io/badge/version-1.7.1-5B8DEF?style=flat-square" alt="版本 1.7.1">
   <img src="https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4?style=flat-square" alt="平台：Windows 11 x64">
   <img src="https://img.shields.io/badge/license-MIT-3DA639?style=flat-square" alt="许可证：MIT">
 </p>
@@ -29,8 +29,8 @@ QuotaMonitor 安静地停在 Windows 桌面顶部，把你的 AI 编程工具最
 
 ## 预览
 
-<p align="center"><img src="docs/media/v1.7.0/states.png" width="1000" alt="灵动岛的四种状态：极简、收起、展开、提醒极简"></p>
-<p align="center"><sub>极简 → 收起 → 展开 → 提醒极简。v1.7.0 真实界面，合成演示数据。</sub></p>
+<p align="center"><img src="docs/media/v1.7.1/states.png" width="1000" alt="灵动岛的四种状态：极简、收起、展开、提醒极简"></p>
+<p align="center"><sub>极简 → 收起 → 展开 → 提醒极简。v1.7.1 真实界面，合成演示数据。</sub></p>
 
 灵动岛状态、额度视图与 Token 热力图的生产界面截图，全部使用合成演示数据。
 
@@ -75,7 +75,7 @@ QuotaMonitor 安静地停在 Windows 桌面顶部，把你的 AI 编程工具最
 <p align="center"><img src="docs/media/v1.7.0/expanded.png" width="1000" alt="展开态：Codex、DSH、Antigravity 与 OpenCode Go 的额度仪表"></p>
 <p align="center"><sub>展开态：每个平台一块仪表，显示窗口、余额与重置时间。合成演示数据。</sub></p>
 
-<p align="center"><img src="docs/media/v1.7.0/quota.gif" width="1000" alt="额度视图、收起态的受限单值与低额度提醒行为"></p>
+<p align="center"><img src="docs/media/v1.7.1/quota.gif" width="1000" alt="额度视图、收起态的受限单值与低额度提醒行为"></p>
 <p align="center"><sub>额度仪表、收起态受限单值与低额度提醒行为。合成演示数据。</sub></p>
 
 ## Token 用量分析
@@ -126,19 +126,19 @@ Codex、DSH 与 Antigravity 的每日汇总保存在本机；OpenCode Go 的历�
 <p align="center"><img src="docs/media/v1.7.0/minimal.png" width="700" alt="桌面顶部的极简灵动岛细条"></p>
 <p align="center"><sub>极简细条。合成演示数据。</sub></p>
 
-<p align="center"><img src="docs/media/v1.7.0/alert-minimal.png" width="700" alt="提醒极简胶囊：每个受影响平台一个图标与数值槽位"></p>
+<p align="center"><img src="docs/media/v1.7.1/alert-minimal.png" width="700" alt="提醒极简胶囊：每个受影响平台一个图标与数值槽位"></p>
 <p align="center"><sub>提醒极简：每个受影响平台一个「图标 + 数值」槽位，只在数据新鲜且低于阈值时出现。合成演示数据。</sub></p>
 
 ## 安装
 
 QuotaMonitor 以自带运行时的 Windows x64 ZIP 分发：.NET 运行时已包含在内，无需预先安装任何组件，也不需要管理员权限。
 
-1. 从 [Releases](https://github.com/asdstrind/QuotaMonitor/releases/latest) 下载 `QuotaMonitor-v1.7.0-win-x64.zip`。
+1. 从 [Releases](https://github.com/asdstrind/QuotaMonitor/releases/latest) 下载 `QuotaMonitor-v1.7.1-win-x64.zip`。
 2. 解压**完整目录**并保持文件在一起，不要压缩包内直接运行。
 3. 运行 `QuotaMonitor.exe`，灵动岛会出现在主显示器顶部中央。
 4. 打开设置（展开态齿轮图标，或托盘 → 设置），连接你使用的平台。尚未配置或读不到数据的平台会显示配置提示，而不是编造的数字。
 
-**Windows SmartScreen：** 可执行文件未做代码签名，首次启动可能出现「Windows 已保护你的电脑」。选择**更多信息 → 仍要运行**即可。Release 资产包含 `QuotaMonitor-v1.7.0-win-x64.zip` 与 `QuotaMonitor-v1.7.0-win-x64.zip.sha256`，运行前请先核对哈希。
+**Windows SmartScreen：** 可执行文件未做代码签名，首次启动可能出现「Windows 已保护你的电脑」。选择**更多信息 → 仍要运行**即可。Release 资产包含 `QuotaMonitor-v1.7.1-win-x64.zip` 与 `QuotaMonitor-v1.7.1-win-x64.zip.sha256`，运行前请先核对哈希。
 
 **升级：** 先右键托盘图标选择**退出**，再替换目录；保留旧目录作为备份没有问题——设置并不在目录内。**卸载：** 从托盘退出，先在设置里关闭开机启动，删除目录，从 Windows 凭据管理器移除 `QuotaMonitor/OpenCodeGo/ConsoleReadOnlyApiKey`，如需清除本地历史再删除 `%LOCALAPPDATA%\QuotaMonitor`。
 

@@ -6,12 +6,12 @@
 <p align="center">Codex · DSH (DeepSeek Harness) · Antigravity · OpenCode Go</p>
 
 <p align="center">
-  <a href="https://github.com/asdstrind/QuotaMonitor/releases/latest"><strong>Download v1.7.0 for Windows 11 x64</strong></a><br>
-  <sub><code>QuotaMonitor-v1.7.0-win-x64.zip</code> · self-contained, no installer, no admin rights</sub>
+  <a href="https://github.com/asdstrind/QuotaMonitor/releases/latest"><strong>Download v1.7.1 for Windows 11 x64</strong></a><br>
+  <sub><code>QuotaMonitor-v1.7.1-win-x64.zip</code> · self-contained, no installer, no admin rights</sub>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.7.0-5B8DEF?style=flat-square" alt="Version 1.7.0">
+  <img src="https://img.shields.io/badge/version-1.7.1-5B8DEF?style=flat-square" alt="Version 1.7.1">
   <img src="https://img.shields.io/badge/platform-Windows%2011%20x64-0078D4?style=flat-square" alt="Platform: Windows 11 x64">
   <img src="https://img.shields.io/badge/license-MIT-3DA639?style=flat-square" alt="License: MIT">
 </p>
@@ -29,8 +29,8 @@ It works with the tools you already sign in to — Codex CLI, DSH (DeepSeek Harn
 
 ## Preview
 
-<p align="center"><img src="docs/media/v1.7.0/states.png" width="1000" alt="The four island states: Minimal, Collapsed, Expanded, and Alert Minimal"></p>
-<p align="center"><sub>Minimal → Collapsed → Expanded → Alert Minimal. Actual v1.7.0 UI, synthetic demo data.</sub></p>
+<p align="center"><img src="docs/media/v1.7.1/states.png" width="1000" alt="The four island states: Minimal, Collapsed, Expanded, and Alert Minimal"></p>
+<p align="center"><sub>Minimal → Collapsed → Expanded → Alert Minimal. Actual v1.7.1 UI, synthetic demo data.</sub></p>
 
 Production captures of the island states, quota view and token heatmap — all with synthetic demo data.
 
@@ -75,7 +75,7 @@ Failures keep the last good reading and mark it **stale**; providers that were n
 <p align="center"><img src="docs/media/v1.7.0/expanded.png" width="1000" alt="Expanded island showing Codex, DSH, Antigravity and OpenCode Go instruments"></p>
 <p align="center"><sub>Expanded view: one instrument per provider, with windows, balances and reset times. Synthetic demo data.</sub></p>
 
-<p align="center"><img src="docs/media/v1.7.0/quota.gif" width="1000" alt="Quota view, collapsed limiting value and low-quota alert behaviour"></p>
+<p align="center"><img src="docs/media/v1.7.1/quota.gif" width="1000" alt="Quota view, collapsed limiting value and low-quota alert behaviour"></p>
 <p align="center"><sub>Quota instruments, the collapsed limiting value and low-quota alert behaviour. Synthetic demo data.</sub></p>
 
 ## Token usage analytics
@@ -126,19 +126,19 @@ The island has four states and is driven by the pointer, not by constant windows
 <p align="center"><img src="docs/media/v1.7.0/minimal.png" width="700" alt="Minimal island strip at the top edge of the desktop"></p>
 <p align="center"><sub>Minimal strip. Synthetic demo data.</sub></p>
 
-<p align="center"><img src="docs/media/v1.7.0/alert-minimal.png" width="700" alt="Alert Minimal capsule with one icon and value slot per affected provider"></p>
+<p align="center"><img src="docs/media/v1.7.1/alert-minimal.png" width="700" alt="Alert Minimal capsule with one icon and value slot per affected provider"></p>
 <p align="center"><sub>Alert Minimal: one icon-and-value slot per affected provider, shown only for fresh data below a threshold. Synthetic demo data.</sub></p>
 
 ## Installation
 
 QuotaMonitor ships as a self-contained Windows x64 ZIP. The .NET runtime is bundled; nothing needs to be installed first, and no administrator rights are required.
 
-1. Download `QuotaMonitor-v1.7.0-win-x64.zip` from [Releases](https://github.com/asdstrind/QuotaMonitor/releases/latest).
+1. Download `QuotaMonitor-v1.7.1-win-x64.zip` from [Releases](https://github.com/asdstrind/QuotaMonitor/releases/latest).
 2. Unzip the **whole folder** and keep its files together. Do not run the executable from inside the archive.
 3. Run `QuotaMonitor.exe`. The island appears at the top center of your primary display.
 4. Open Settings (gear icon in Expanded, or tray → Settings) and connect the providers you use. Providers without data show a setup hint instead of invented numbers.
 
-**Windows SmartScreen:** the executable is not code-signed, so the first launch may show "Windows protected your PC". Choose **More info → Run anyway**. Release assets include `QuotaMonitor-v1.7.0-win-x64.zip` and `QuotaMonitor-v1.7.0-win-x64.zip.sha256`; verify the hash before running.
+**Windows SmartScreen:** the executable is not code-signed, so the first launch may show "Windows protected your PC". Choose **More info → Run anyway**. Release assets include `QuotaMonitor-v1.7.1-win-x64.zip` and `QuotaMonitor-v1.7.1-win-x64.zip.sha256`; verify the hash before running.
 
 **Upgrading:** right-click the tray icon and choose **Exit** before replacing the folder. Keeping the previous folder as a backup is fine — settings live outside it. **Uninstalling:** exit from the tray, turn off start-with-Windows in Settings, delete the folder, remove the `QuotaMonitor/OpenCodeGo/ConsoleReadOnlyApiKey` credential from Windows Credential Manager, and delete `%LOCALAPPDATA%\QuotaMonitor` if you want to remove local history.
 
